@@ -298,7 +298,21 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;backgroun
 dialog.lb{border:0;padding:0;background:transparent;max-width:min(1100px,94vw);max-height:92vh}
 dialog.lb::backdrop{background:rgba(6,12,28,.88)}
 dialog.lb img{max-height:82vh;width:auto;margin:auto;border-radius:12px}
-dialog.lb video{display:block;max-height:82vh;max-width:100%;width:auto;margin:auto;border-radius:12px;background:#000}
+dialog.lb .vp{position:relative;width:min(960px,92vw);margin:auto;border-radius:12px;overflow:hidden;background:#000;user-select:none;-webkit-user-select:none}
+dialog.lb .vp video{display:block;width:100%;max-height:76vh;margin:0;border-radius:0;background:#000;pointer-events:auto}
+.vp-big{position:absolute;inset:0 0 54px 0;display:grid;place-items:center;background:none;border:0;cursor:pointer;color:#fff}
+.vp-big span{width:76px;height:76px;border-radius:50%;background:rgba(15,37,87,.82);display:grid;place-items:center;transition:transform .2s}
+.vp-big:hover span{transform:scale(1.06)}
+.vp-big svg{width:34px;height:34px;fill:#fff;margin-left:4px}
+.vp.playing .vp-big{opacity:0;pointer-events:none}
+.vp-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#0F2557;color:#fff;font:600 .85rem var(--f-body)}
+dialog.lb .vp-bar button{position:static;width:36px;height:36px;border-radius:8px;background:transparent;color:#fff;border:0;display:grid;place-items:center;font-size:1rem;cursor:pointer;flex:none}
+dialog.lb .vp-bar button:hover{background:rgba(255,255,255,.14)}
+.vp-bar svg{width:20px;height:20px;fill:currentColor}
+.vp-bar time{font-variant-numeric:tabular-nums;white-space:nowrap;opacity:.9}
+.vp-seek{flex:1;min-width:0;accent-color:#8FD3E3;height:20px;cursor:pointer}
+.vp-vol{width:72px;accent-color:#8FD3E3;cursor:pointer}
+@media (max-width:560px){.vp-vol{display:none}}
 dialog.lb p{color:#fff;text-align:center;margin-top:12px;font-weight:600}
 dialog.lb button{position:fixed;top:calc(16px + env(safe-area-inset-top,0px));right:calc(16px + env(safe-area-inset-right,0px));background:#fff;border:0;border-radius:50%;width:44px;height:44px;font-size:22px;cursor:pointer;color:#0F2557}
 
@@ -812,7 +826,14 @@ footer .brand-name small{color:#9FB3C8}
 
 <div class="mbar"><a class="btn btn-ghost" href="tel:+13527203787">Call</a><a class="btn btn-primary" href="#contact">Free estimate</a></div>
 
-<dialog class="lb" id="vidDlg"><button type="button" id="vidClose" aria-label="Close">×</button><video id="vid" controls playsinline preload="none"><source src="video/portal.mp4" type="video/mp4"><source src="video/portal.webm" type="video/webm"></video><p id="vidMsg" hidden>The video isn’t available yet. Please check back soon.</p></dialog>
+<dialog class="lb" id="vidDlg" aria-label="Portal video"><button type="button" id="vidClose" aria-label="Close">×</button>
+<div class="vp" id="vp"><video id="vid" playsinline preload="metadata" controlslist="nodownload noplaybackrate noremoteplayback" disablepictureinpicture disableremoteplayback oncontextmenu="return false"><source src="video/portal.mp4" type="video/mp4"><source src="video/portal.webm" type="video/webm"></video>
+<button type="button" class="vp-big" id="vpBig" aria-label="Play video"><span><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span></button>
+<div class="vp-bar"><button type="button" id="vpPlay" aria-label="Play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+<time id="vpTime">0:00 / 0:00</time><input class="vp-seek" id="vpSeek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
+<button type="button" id="vpMute" aria-label="Mute"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9z M14 9.2a4 4 0 010 5.6l1.4 1.4a6 6 0 000-8.4z"/></svg></button><input class="vp-vol" id="vpVol" type="range" min="0" max="1" value="1" step="0.05" aria-label="Volume">
+<button type="button" id="vpFull" aria-label="Full screen"><svg viewBox="0 0 24 24"><path d="M5 5h5v2H7v3H5zm9 0h5v5h-2V7h-3zM5 14h2v3h3v2H5zm12 0h2v5h-5v-2h3z"/></svg></button></div></div>
+<p id="vidMsg" hidden>The video isn’t available yet. Please check back soon.</p></dialog>
 <dialog class="lb" id="lb"><button type="button" id="lbClose" aria-label="Close">×</button><img id="lbImg" alt=""><p id="lbCap"></p></dialog>
 
 <script>
@@ -911,14 +932,27 @@ footer .brand-name small{color:#9FB3C8}
     document.querySelectorAll('[data-f]').forEach(x=>x.setAttribute('aria-selected',x===b));
     gal.querySelectorAll('.gi').forEach(el=>el.hidden=!(b.dataset.f==='all'||el.dataset.cat===b.dataset.f));
   }));
-  // portal video: drop portal.mp4 (or portal.webm) into the /video folder
-  const vd=document.getElementById('vidDlg'),vv=document.getElementById('vid'),vm=document.getElementById('vidMsg');
-  document.getElementById('vidOpen').addEventListener('click',()=>{vm.hidden=true;vv.hidden=false;vv.load();vd.showModal();});
-  vv.querySelectorAll('source').forEach(s=>s.addEventListener('error',()=>{if(s===vv.querySelector('source:last-of-type')){vv.hidden=true;vm.hidden=false;}}));
-  const stopVid=()=>{vv.pause();};
-  document.getElementById('vidClose').addEventListener('click',()=>vd.close());
+  // portal video: drop portal.mp4 (or portal.webm) into the /video folder. Custom controls; no download button.
+  const vd=document.getElementById('vidDlg'),vp=document.getElementById('vp'),vv=document.getElementById('vid'),vm=document.getElementById('vidMsg');
+  const $=id=>document.getElementById(id), seek=$('vpSeek'), tm=$('vpTime');
+  const PLAY='<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>', PAUSE='<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>';
+  const fmt=s=>{s=Math.max(0,Math.floor(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
+  const toggle=()=>{vv.paused?vv.play().catch(()=>{}):vv.pause();};
+  const sync=()=>{const p=!vv.paused;vp.classList.toggle('playing',p);$('vpPlay').innerHTML=p?PAUSE:PLAY;$('vpPlay').setAttribute('aria-label',p?'Pause':'Play');};
+  const prog=()=>{tm.textContent=fmt(vv.currentTime)+' / '+fmt(vv.duration);if(vv.duration&&document.activeElement!==seek)seek.value=vv.currentTime/vv.duration*1000;};
+  $('vidOpen').addEventListener('click',()=>{vm.hidden=true;vp.hidden=false;vv.load();vd.showModal();});
+  vv.querySelectorAll('source').forEach(s=>s.addEventListener('error',()=>{if(s===vv.querySelector('source:last-of-type')){vp.hidden=true;vm.hidden=false;}}));
+  $('vpBig').addEventListener('click',toggle);$('vpPlay').addEventListener('click',toggle);vv.addEventListener('click',toggle);
+  ['play','pause','ended'].forEach(e=>vv.addEventListener(e,sync));
+  ['timeupdate','loadedmetadata','durationchange'].forEach(e=>vv.addEventListener(e,prog));
+  seek.addEventListener('input',()=>{if(vv.duration)vv.currentTime=seek.value/1000*vv.duration;});
+  $('vpVol').addEventListener('input',e=>{vv.volume=+e.target.value;vv.muted=vv.volume===0;});
+  $('vpMute').addEventListener('click',()=>{vv.muted=!vv.muted;$('vpMute').style.opacity=vv.muted?.5:1;});
+  $('vpFull').addEventListener('click',()=>{const f=vp.requestFullscreen||vp.webkitRequestFullscreen;if(document.fullscreenElement)document.exitFullscreen();else if(f)f.call(vp);else if(vv.webkitEnterFullscreen)vv.webkitEnterFullscreen();});
+  vp.addEventListener('contextmenu',e=>e.preventDefault());
+  $('vidClose').addEventListener('click',()=>vd.close());
   vd.addEventListener('click',e=>{if(e.target===vd)vd.close();});
-  vd.addEventListener('close',stopVid);
+  vd.addEventListener('close',()=>{vv.pause();vv.currentTime=0;sync();});
   const lb=document.getElementById('lb');
   gal.addEventListener('click',e=>{const t=e.target.closest('.gi');if(!t)return;const g=G[+t.dataset.i];
     document.getElementById('lbImg').src='photos/'+g[0];document.getElementById('lbImg').alt=g[2];document.getElementById('lbCap').textContent=g[2];
