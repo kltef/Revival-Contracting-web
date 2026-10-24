@@ -298,6 +298,7 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;backgroun
 dialog.lb{border:0;padding:0;background:transparent;max-width:min(1100px,94vw);max-height:92vh}
 dialog.lb::backdrop{background:rgba(6,12,28,.88)}
 dialog.lb img{max-height:82vh;width:auto;margin:auto;border-radius:12px}
+dialog.lb video{display:block;max-height:82vh;max-width:100%;width:auto;margin:auto;border-radius:12px;background:#000}
 dialog.lb p{color:#fff;text-align:center;margin-top:12px;font-weight:600}
 dialog.lb button{position:fixed;top:calc(16px + env(safe-area-inset-top,0px));right:calc(16px + env(safe-area-inset-right,0px));background:#fff;border:0;border-radius:50%;width:44px;height:44px;font-size:22px;cursor:pointer;color:#0F2557}
 
@@ -495,7 +496,7 @@ footer .brand-name small{color:#9FB3C8}
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg><span>Review selections and approve changes online</span></li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg><span>Photos and notes as the work progresses</span></li>
         </ul>
-        <div class="cta-row"><a class="btn btn-ghost" href="https://vimeo.com/coconstruct/review/342806559/2a1fd44177" target="_blank" rel="noopener">Watch the portal video</a></div>
+        <div class="cta-row"><button type="button" class="btn btn-ghost" id="vidOpen">Watch the portal video</button></div>
       </div>
       <div class="portal" aria-label="Example project portal">
         <div class="portal-h"><span>Master bath remodel</span><span class="pill">Example</span></div>
@@ -811,6 +812,7 @@ footer .brand-name small{color:#9FB3C8}
 
 <div class="mbar"><a class="btn btn-ghost" href="tel:+13527203787">Call</a><a class="btn btn-primary" href="#contact">Free estimate</a></div>
 
+<dialog class="lb" id="vidDlg"><button type="button" id="vidClose" aria-label="Close">×</button><video id="vid" controls playsinline preload="none"><source src="video/portal.mp4" type="video/mp4"><source src="video/portal.webm" type="video/webm"></video><p id="vidMsg" hidden>The video isn’t available yet. Please check back soon.</p></dialog>
 <dialog class="lb" id="lb"><button type="button" id="lbClose" aria-label="Close">×</button><img id="lbImg" alt=""><p id="lbCap"></p></dialog>
 
 <script>
@@ -909,6 +911,14 @@ footer .brand-name small{color:#9FB3C8}
     document.querySelectorAll('[data-f]').forEach(x=>x.setAttribute('aria-selected',x===b));
     gal.querySelectorAll('.gi').forEach(el=>el.hidden=!(b.dataset.f==='all'||el.dataset.cat===b.dataset.f));
   }));
+  // portal video: drop portal.mp4 (or portal.webm) into the /video folder
+  const vd=document.getElementById('vidDlg'),vv=document.getElementById('vid'),vm=document.getElementById('vidMsg');
+  document.getElementById('vidOpen').addEventListener('click',()=>{vm.hidden=true;vv.hidden=false;vv.load();vd.showModal();});
+  vv.querySelectorAll('source').forEach(s=>s.addEventListener('error',()=>{if(s===vv.querySelector('source:last-of-type')){vv.hidden=true;vm.hidden=false;}}));
+  const stopVid=()=>{vv.pause();};
+  document.getElementById('vidClose').addEventListener('click',()=>vd.close());
+  vd.addEventListener('click',e=>{if(e.target===vd)vd.close();});
+  vd.addEventListener('close',stopVid);
   const lb=document.getElementById('lb');
   gal.addEventListener('click',e=>{const t=e.target.closest('.gi');if(!t)return;const g=G[+t.dataset.i];
     document.getElementById('lbImg').src='photos/'+g[0];document.getElementById('lbImg').alt=g[2];document.getElementById('lbCap').textContent=g[2];
