@@ -1,2 +1,6 @@
 node_modules/
-package-lock.json
+dist/
+.amplify/
+.npm/
+amplify_outputs*
+amplifyconfiguration*

@@ -1,53 +1,68 @@
-const { test } = require('node:test');
+const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
+const { launch, root } = require('./helpers');
 
-const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const exists = rel => fs.existsSync(path.join(root, rel));
+const exists = rel => fs.existsSync(path.join(root, 'public', rel));
+const sources = dir => fs.readdirSync(path.join(root, dir), { recursive: true })
+  .filter(f => /\.(jsx?|mjs|css)$/.test(f)).map(f => fs.readFileSync(path.join(root, dir, f), 'utf8')).join('\n');
+const src = sources('src');
 
-test('every local photos/ reference in index.html exists on disk', () => {
-  const refs = new Set([...html.matchAll(/photos\/[\w.\-\/]+\.(?:jpg|jpeg|png|webp|svg)/gi)].map(m => m[0]));
+test('every photos/ reference in the source exists in public/', () => {
+  const refs = new Set([...src.matchAll(/photos\/[\w.\-\/]+\.(?:jpg|jpeg|png|webp|svg)/gi)].map(m => m[0]));
   assert.ok(refs.size > 0);
-  const missing = [...refs].filter(r => !exists(r));
-  assert.deepEqual(missing, []);
+  assert.deepEqual([...refs].filter(r => !exists(r)), []);
 });
 
-test('every gallery entry points to an existing photo', () => {
-  const block = html.match(/const G=\[([\s\S]*?)\n\s*\];/)[1];
-  const files = [...block.matchAll(/\['([^']+)'/g)].map(m => m[1]);
-  assert.equal(files.length, 10);
-  assert.deepEqual(files.filter(f => !exists('photos/' + f)), []);
+test('every built-in gallery photo exists', async () => {
+  const { DEFAULT_GALLERY, CATEGORIES } = await import('../src/lib/gallery.mjs');
+  assert.equal(DEFAULT_GALLERY.length, 10);
+  assert.deepEqual(DEFAULT_GALLERY.filter(g => !exists(g.src)), []);
+  const cats = CATEGORIES.map(c => c[0]);
+  assert.deepEqual(DEFAULT_GALLERY.filter(g => !cats.includes(g.category)), []);
 });
 
-test('local video and favicon files referenced by the page exist', () => {
-  const refs = [...html.matchAll(/(?:src|href|poster)="((?:video|photos)\/[^"$]+|favicon\.svg)"/g)].map(m => m[1]);
-  const missing = [...new Set(refs)].filter(r => !exists(r));
-  assert.deepEqual(missing, []);
+test('local files referenced by the HTML entry points exist', () => {
+  for (const f of ['index.html', 'admin/index.html']) {
+    const html = fs.readFileSync(path.join(root, f), 'utf8');
+    const refs = [...html.matchAll(/(?:src|href)="\/((?:video|photos)\/[^"]+|favicon\.svg)"/g)].map(m => m[1]);
+    assert.deepEqual(refs.filter(r => !exists(r)), [], f);
+  }
 });
 
-test('every in-page #link targets a real page, service or review shortcut', () => {
-  const pages = new Set([...html.matchAll(/data-page="([^"]+)"/g)].map(m => m[1]));
-  const services = new Set([...html.matchAll(/data-service="([^"]+)"/g)].map(m => m[1]));
-  const targets = new Set([...html.matchAll(/href="#([^"]*)"/g)].map(m => m[1]).filter(Boolean));
-  const bad = [...targets].filter(t => {
-    if (pages.has(t)) return false;
+let browser, open;
+before(async () => ({ browser, open } = await launch()));
+after(() => browser.close());
+
+test('every in-page #link targets a real page, service or review shortcut', async () => {
+  const page = await open();
+  const { pages, services, targets } = await page.evaluate(() => ({
+    pages: [...document.querySelectorAll('[data-page]')].map(e => e.dataset.page),
+    services: [...document.querySelectorAll('[data-service]')].map(e => e.dataset.service),
+    targets: [...document.querySelectorAll('a[href^="#"]')].map(a => a.getAttribute('href').slice(1)).filter(Boolean),
+  }));
+  const bad = [...new Set(targets)].filter(t => {
+    if (pages.includes(t)) return false;
     const s = t.match(/^services-(\w+)$/);
-    if (s) return !services.has(s[1]);
+    if (s) return !services.includes(s[1]);
     return !/^write-review(-\w+)?$/.test(t);
   });
   assert.deepEqual(bad, []);
+  await page.close();
 });
 
-test('every <img> has an alt attribute', () => {
-  const imgs = [...html.matchAll(/<img\b[^>]*>/g)].map(m => m[0]);
-  assert.ok(imgs.length > 0);
-  assert.deepEqual(imgs.filter(i => !/\salt=/.test(i)), []);
+test('every <img> has an alt attribute', async () => {
+  const page = await open('index.html', '#projects');
+  const missing = await page.$$eval('img', imgs => imgs.filter(i => !i.hasAttribute('alt')).map(i => i.outerHTML));
+  assert.ok(await page.locator('img').count() > 0);
+  assert.deepEqual(missing, []);
+  await page.close();
 });
 
-test('element ids are unique', () => {
-  const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]);
-  const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
-  assert.deepEqual(dupes, []);
+test('element ids are unique', async () => {
+  const page = await open();
+  const ids = await page.$$eval('[id]', els => els.map(e => e.id));
+  assert.deepEqual(ids.filter((id, i) => ids.indexOf(id) !== i), []);
+  await page.close();
 });
