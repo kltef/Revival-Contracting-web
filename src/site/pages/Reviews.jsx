@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Page, PageHead, DoneIcon } from '../Layout.jsx';
-import { hasBackend, publicBackend } from '../../amplify.js';
+import { hasBackend, listAll, publicBackend } from '../../amplify.js';
 
 function Quote({ id, chips, marks, text, initials, name, place }) {
   const [open, setOpen] = useState(false);          // button state
@@ -25,6 +25,26 @@ function Quote({ id, chips, marks, text, initials, name, place }) {
       <figcaption className="who"><span className="av">{initials}</span><span><b>{name}</b><small>{place}</small></span></figcaption>
     </figure>
   );
+}
+
+// Reviews published from /admin, newest first
+function usePublishedReviews() {
+  const [list, setList] = useState([]);
+  useEffect(() => {
+    if (!hasBackend) return;
+    let live = true;
+    (async () => {
+      try {
+        const { client } = await publicBackend();
+        const rows = await listAll(client.models.PublishedReview);
+        if (live) setList(rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+      } catch (e) {
+        console.error('Could not load reviews', e);
+      }
+    })();
+    return () => { live = false; };
+  }, []);
+  return list;
 }
 
 const STAR = 'M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z';
@@ -164,6 +184,7 @@ function ReviewForm({ open, setOpen, prefill }) {
 
 export default function Reviews({ active, reviewRequest }) {
   const [open, setOpen] = useState(false);
+  const published = usePublishedReviews();
   useEffect(() => { if (reviewRequest) setOpen(true); }, [reviewRequest]);
 
   return (
@@ -174,6 +195,14 @@ export default function Reviews({ active, reviewRequest }) {
       </PageHead>
       <div className="band" style={{ paddingTop: 36 }}>
         <div className="wrap" style={{ display: 'grid', gap: 18 }}>
+          {published.map(r => {
+            const chips = r.highlights?.filter(Boolean);
+            return (
+              <Quote key={r.id} id={'rv-' + r.id} chips={chips?.length ? chips : null} marks={!chips?.length}
+                text={chips?.length ? `“${r.review}”` : r.review} initials={r.name.charAt(0).toUpperCase()} name={r.name}
+                place={[r.location, r.project].filter(Boolean).join(' · ')} />
+            );
+          })}
           <Quote id="rv0" chips={['Professionalism', 'Punctuality', 'Quality', 'Responsiveness', 'Value']} initials="JG" name="Jeff Geuder" place="Bathroom renovation"
             text="“We used RCR for our bathroom renovations. They were recommended by some friends. They sat down with us and helped us chose all of what we needed. The work and products were high quality. Every subcontractor was courteous and professional. We were always made aware of dates and times they were coming. Dan was very attentive and checked the work after each worker. He and Jeanette helped with ideas and paint colors and other things I hadn’t considered. We will definitely be calling them again for our next renovation project.”" />
           <Quote id="rv1" marks initials="DH" name="Rev. David H. Hornsby, Ret." place="Flowery Branch, GA"

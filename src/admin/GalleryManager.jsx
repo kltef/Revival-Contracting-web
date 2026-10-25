@@ -20,20 +20,43 @@ function Uploader({ onUpload, busy }) {
   const [caption, setCaption] = useState('');
   const [category, setCategory] = useState('kitchen');
   const [inputKey, setInputKey] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [previews, setPreviews] = useState([]);
+
+  useEffect(() => {
+    const urls = files.map(f => URL.createObjectURL(f));
+    setPreviews(urls);
+    return () => urls.forEach(u => URL.revokeObjectURL(u));
+  }, [files]);
+
+  const pick = list => setFiles([...list].filter(f => f.type.startsWith('image/')));
   const submit = async e => {
     e.preventDefault();
     if (!files.length) return;
     await onUpload(files, caption.trim(), category);
     setFiles([]); setCaption(''); setInputKey(k => k + 1);
   };
+  const n = files.length;
   return (
     <form className="a-card a-upload" onSubmit={submit}>
       <h2>Add photos</h2>
+      <label className={'a-drop' + (dragging ? ' over' : '') + (n ? ' has' : '')}
+        onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)}
+        onDrop={e => { e.preventDefault(); setDragging(false); pick(e.dataTransfer.files); }}>
+        <input key={inputKey} className="a-sr" type="file" accept="image/*" multiple onChange={e => pick(e.target.files)} />
+        <span className="a-drop-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="9" cy="10" r="2" /><path d="M21 16l-5-5-9 9" /></svg>
+        </span>
+        <span className="a-drop-text">
+          <b>{n ? `${n} photo${n > 1 ? 's' : ''} selected` : 'Choose photos'}</b>
+          <span className="a-muted">{n ? 'Click to choose different ones' : 'or drag them here'}</span>
+        </span>
+      </label>
+      {n > 0 && <ul className="a-previews">{previews.map((u, i) => <li key={u}><img src={u} alt={files[i]?.name || ''} /></li>)}</ul>}
       <div className="a-row">
-        <label>Photos<input key={inputKey} type="file" accept="image/*" multiple onChange={e => setFiles([...e.target.files])} /></label>
-        <label>Caption<input value={caption} onChange={e => setCaption(e.target.value)} placeholder={files.length > 1 ? 'Leave blank to use each file name' : 'For example: Completed kitchen remodel'} /></label>
+        <label>Caption<input value={caption} onChange={e => setCaption(e.target.value)} placeholder={n > 1 ? 'Leave blank to use each file name' : 'For example: Completed kitchen remodel'} /></label>
         <label>Category<CategorySelect value={category} onChange={setCategory} /></label>
-        <button className="a-btn" type="submit" disabled={busy || !files.length}>{busy ? 'Uploading…' : `Upload${files.length > 1 ? ' ' + files.length + ' photos' : ''}`}</button>
+        <button className="a-btn" type="submit" disabled={busy || !n}>{busy ? 'Publishing…' : `Publish${n > 1 ? ' ' + n + ' photos' : ''}`}</button>
       </div>
     </form>
   );

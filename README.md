@@ -3,7 +3,7 @@
 The site is a React app built with [Vite](https://vite.dev). Its backend runs on [AWS Amplify Gen 2](https://docs.amplify.aws/react/) and covers:
 
 - **Gallery** (Projects page): photos and their order are managed from the admin page and stored in S3. Until any are added there, the site shows the 10 built-in photos in `public/photos/`.
-- **Estimate requests** (Contact page) and **reviews** (Reviews page): saved to the database for you to read in the admin page. Visitors can send them, but only a signed-in admin can read them.
+- **Estimate requests** (Contact page) and **reviews** (Reviews page): saved to the database for you to read in the admin page. Visitors can send them, but only a signed-in admin can read them. Reviews you publish from the admin page appear on the Reviews page.
 - **Admin page** at `/admin/`: sign in to manage the gallery and read submissions. Only accounts you create in the Cognito console can sign in; self sign-up is switched off.
 
 ## Project layout
@@ -42,8 +42,9 @@ npx ampx sandbox
 
 ## Admin page
 
-- **Gallery**: upload photos with a caption and category, edit captions and categories, reorder with the arrow buttons, or delete. The first time, choose **Add the built-in photos** if you want to keep the current 10 photos alongside new ones. Once the gallery has any photos in the admin page, the site shows only those.
-- **Estimate requests** and **Reviews**: newest first, with tap-to-call and email links. Reviews aren't published automatically.
+- **Gallery**: choose or drag in photos, add a caption and category, and press **Publish**. You can also edit captions and categories, reorder with the arrow buttons, or delete. The first time, choose **Add the built-in photos** if you want to keep the current 10 photos alongside new ones. Once the gallery has any photos in the admin page, the site shows only those.
+- **Estimate requests** and **Reviews**: newest first, with tap-to-call and email links.
+- **Publishing reviews**: press **Publish** on a review to show it on the Reviews page (first name, village, project, highlights and text; never the email). **Remove from site** takes it down again. Reviews whose writer didn't give permission can't be published.
 
 ## Portal video
 

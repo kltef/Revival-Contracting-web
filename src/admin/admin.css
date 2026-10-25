@@ -50,7 +50,20 @@ h2{font-size:1.05rem}
 input,select{font:inherit;padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);min-width:0}
 .a-row{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
 .a-row label{display:grid;gap:4px;font-weight:600;font-size:.88rem;flex:1 1 200px}
-.a-row input[type=file]{padding:7px}
+/* photo picker */
+.a-sr{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.a-drop{position:relative;display:flex;align-items:center;gap:16px;padding:20px;border:2px dashed var(--line);border-radius:14px;background:var(--bg);cursor:pointer;transition:border-color .15s,background .15s}
+.a-drop:hover,.a-drop.over{border-color:var(--aqua-deep);background:var(--aqua-soft)}
+.a-drop.has{border-style:solid;border-color:var(--aqua-deep)}
+.a-drop:has(input:focus-visible){outline:3px solid var(--aqua-deep);outline-offset:2px}
+.a-drop-icon{width:52px;height:52px;flex:none;border-radius:14px;background:var(--navy);color:#fff;display:grid;place-items:center}
+.a-drop-icon svg{width:26px;height:26px}
+.a-drop-text{display:grid;gap:2px}
+.a-drop-text b{font-size:1.05rem}
+.a-previews{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.a-previews img{width:72px;height:72px;object-fit:cover;border-radius:10px;display:block;background:var(--aqua-soft)}
+.a-actions{display:flex;flex-wrap:wrap;gap:8px}
+.a-badge{font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:var(--aqua-soft);color:var(--navy);border-radius:999px;padding:3px 10px;margin-left:8px;vertical-align:middle}
 
 .a-photos{list-style:none;padding:0;margin:0;display:grid;gap:10px}
 .a-photo{display:grid;grid-template-columns:28px 96px 1fr auto;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
@@ -65,7 +78,6 @@ input,select{font:inherit;padding:9px 11px;border:1.5px solid var(--line);border
 }
 
 .a-list{list-style:none;padding:0;margin:0}
-.a-list .a-btn{justify-self:start}
 .a-card-top{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 16px;align-items:baseline}
 .a-stars{color:#E0A100;letter-spacing:1px;margin-left:6px}
 dl{margin:0;display:grid;gap:6px}

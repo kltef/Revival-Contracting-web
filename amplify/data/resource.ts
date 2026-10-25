@@ -40,8 +40,23 @@ const schema = a.schema({
       review: a.string().required(),
       email: a.string(),
       allowPublish: a.boolean(),
+      // set while the review is on the site
+      publishedReviewId: a.id(),
     })
-    .authorization((allow) => [allow.guest().to(['create']), allow.authenticated().to(['read', 'delete'])]),
+    .authorization((allow) => [allow.guest().to(['create']), allow.authenticated().to(['read', 'update', 'delete'])]),
+
+  // What the Reviews page shows. Created from a ReviewSubmission with the admin
+  // page's Publish button; only the parts the reviewer agreed to share, never their email.
+  PublishedReview: a
+    .model({
+      name: a.string().required(),
+      location: a.string(),
+      project: a.string(),
+      rating: a.integer().required(),
+      highlights: a.string().array(),
+      review: a.string().required(),
+    })
+    .authorization((allow) => [allow.guest().to(['read']), allow.authenticated()]),
 });
 
 export type Schema = ClientSchema<typeof schema>;

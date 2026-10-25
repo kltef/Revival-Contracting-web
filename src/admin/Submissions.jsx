@@ -37,9 +37,12 @@ const KINDS = {
   reviews: {
     model: 'ReviewSubmission',
     title: 'Reviews',
-    blurb: 'Sent from the Reviews page. Nothing here appears on the site until you add it.',
+    blurb: 'Sent from the Reviews page. A review shows on the site only after you publish it.',
     empty: 'No reviews yet.',
-    heading: r => <>{r.name} <span className="a-stars" aria-label={r.rating + ' stars'}>{stars(r.rating)}</span></>,
+    heading: r => (
+      <>{r.name} <span className="a-stars" aria-label={r.rating + ' stars'}>{stars(r.rating)}</span>
+        {r.publishedReviewId && <span className="a-badge">On the site</span>}</>
+    ),
     body: r => (
       <>
         <Field label="Project">{r.project}</Field>
@@ -50,6 +53,9 @@ const KINDS = {
         <Field label="May post">{r.allowPublish ? 'Yes' : 'No'}</Field>
       </>
     ),
+    actions: (r, { publish, unpublish, busy }) => (r.publishedReviewId
+      ? <button type="button" className="a-btn ghost" disabled={busy} onClick={() => unpublish(r)}>Remove from site</button>
+      : <button type="button" className="a-btn" disabled={busy || !r.allowPublish} title={r.allowPublish ? undefined : 'The reviewer didn’t give permission to post it'} onClick={() => publish(r)}>Publish</button>),
   },
 };
 
@@ -58,6 +64,7 @@ export default function Submissions({ client, kind }) {
   const model = client.models[k.model];
   const [rows, setRows] = useState(null);
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     setError('');
@@ -71,11 +78,37 @@ export default function Submissions({ client, kind }) {
   }, [model]);
   useEffect(() => { setRows(null); load(); }, [load]);
 
-  const del = async r => {
-    if (!confirm(`Delete the submission from ${r.name}? This can't be undone.`)) return;
-    const { errors } = await model.delete({ id: r.id });
-    if (errors?.length) setError('Could not delete: ' + errors.map(x => x.message).join('; '));
-    load();
+  // run a change, then reload so the list matches what's saved
+  const run = async (fn, failMsg) => {
+    setBusy(true); setError('');
+    try { await fn(); } catch (e) { console.error(e); setError(failMsg + ': ' + e.message); }
+    await load();
+    setBusy(false);
+  };
+  const check = ({ data, errors }) => { if (errors?.length) throw new Error(errors.map(x => x.message).join('; ')); return data; };
+  const Published = client.models.PublishedReview;
+
+  // Only the reviewer's first name goes on the site, as the review form promises
+  const publish = r => run(async () => {
+    const shown = check(await Published.create({
+      name: r.name.trim().split(/\s+/)[0], location: r.location, project: r.project,
+      rating: r.rating, highlights: r.highlights, review: r.review,
+    }));
+    check(await model.update({ id: r.id, publishedReviewId: shown.id }));
+  }, 'Could not publish');
+
+  const unpublish = r => run(async () => {
+    check(await Published.delete({ id: r.publishedReviewId }));
+    check(await model.update({ id: r.id, publishedReviewId: null }));
+  }, 'Could not remove it from the site');
+
+  const del = r => {
+    const onSite = r.publishedReviewId ? ' It will also be removed from the site.' : '';
+    if (!confirm(`Delete the submission from ${r.name}?${onSite} This can't be undone.`)) return;
+    run(async () => {
+      if (r.publishedReviewId) check(await Published.delete({ id: r.publishedReviewId }));
+      check(await model.delete({ id: r.id }));
+    }, 'Could not delete');
   };
 
   return (
@@ -95,7 +128,10 @@ export default function Submissions({ client, kind }) {
                 <time className="a-muted" dateTime={r.createdAt}>{when(r.createdAt)}</time>
               </div>
               <dl>{k.body(r)}</dl>
-              <button type="button" className="a-btn danger" onClick={() => del(r)}>Delete</button>
+              <div className="a-actions">
+                {k.actions?.(r, { publish, unpublish, busy })}
+                <button type="button" className="a-btn danger" disabled={busy} onClick={() => del(r)}>Delete</button>
+              </div>
             </li>
           ))}
         </ul>
