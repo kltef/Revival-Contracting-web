@@ -110,3 +110,16 @@ test('reviews: expand/collapse toggles aria-expanded', async () => {
   assert.equal(await btn.locator('span').textContent(), 'Read full review');
   await page.close();
 });
+
+test('forms say nothing was sent when no backend is connected', async () => {
+  const page = await open('index.html', '#contact');
+  assert.match(await page.textContent('#done .note'), /isn’t connected yet/);
+  await page.close();
+});
+
+test('admin: without a backend explains how to connect one', async () => {
+  const page = await open('admin/');
+  await page.waitForSelector('h1');
+  assert.equal(await page.textContent('h1'), 'Backend not connected');
+  await page.close();
+});
