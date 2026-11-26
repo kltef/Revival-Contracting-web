@@ -1,6 +1,7 @@
 // Shared rules for editing src/content/site.json.
 // Used by the admin editor (to build a change list), the content-api function (to apply it)
-// and the GitHub review workflow (to decide whether Claude may publish it without Anthony).
+// and scripts/content-check.mjs, which Claude's website-edit routine runs to decide whether it may
+// publish an edit without Anthony (see docs/website-edit-routine.md).
 
 export const CONTENT_FILE = 'src/content/site.json';
 export const UPLOAD_DIR = 'public/photos/uploads/';

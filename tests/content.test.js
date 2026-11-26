@@ -153,3 +153,36 @@ test('statusOf maps PR state to what the editor sees', () => {
   assert.equal(s(['content-change'], { state: 'closed' }), 'closed');
   assert.equal(toMessage({ body: 'plain comment', user: { login: 'kltef' }, created_at: 'x' }).from, 'person');
 });
+
+test('content-api: wakes Claude’s routine after an edit or a message, and carries on if that fails', async () => {
+  const gh = fakeGitHub();
+  const fires = [];
+  const fetch = async (url, init) => {
+    if (url.startsWith('https://api.anthropic.com/')) { fires.push({ url, headers: init.headers, body: JSON.parse(init.body) }); return new Response('{}', { status: fires.length > 1 ? 503 : 200 }); }
+    return gh.fetch(url, init);
+  };
+  const routine = { url: 'https://api.anthropic.com/v1/claude_code/routines/trig_1/fire', token: 'sk-ant-oat01-x' };
+  const a = createApi({ token: 't', repo: 'kltef/site', fetch, getObject: async () => upload, now: () => 1700, routine });
+  await a.run('submit', { changes: [{ path: ['home', 'hero', 'lead'], value: 'New' }], note: 'Hi' });
+  assert.equal(fires.length, 1, 'one call per edit, even with a note');
+  assert.equal(fires[0].url, routine.url);
+  assert.equal(fires[0].headers.Authorization, 'Bearer sk-ant-oat01-x');
+  assert.equal(fires[0].headers['anthropic-version'], '2023-06-01');
+  assert.equal(fires[0].body.text, 'New website edit on pull request #7 in kltef/site.');
+
+  // a failed call (503) doesn't fail the editor's message; the routine's hourly run picks it up
+  assert.deepEqual(await a.run('message', { number: 7, text: 'Thanks' }), { ok: true });
+  assert.equal(fires[1].body.text, 'New editor message on pull request #7 in kltef/site.');
+
+  // not configured: no call at all
+  const quiet = fakeGitHub();
+  await api(quiet).run('submit', { changes: [{ path: ['home', 'hero', 'lead'], value: 'New' }] });
+  assert.ok(!quiet.calls.some(c => !c.path.startsWith('/')));
+});
+
+test('toMessage: Claude’s comments are recognized by their marker, not their author', () => {
+  const as = body => toMessage({ body, user: { login: 'kltef' }, created_at: 'x' });
+  assert.deepEqual([as('<!-- content-review -->\nLooks good!').from, as('<!-- content-review -->\nLooks good!').text], ['claude', 'Looks good!']);
+  assert.equal(as('<!-- content-status -->\nLive').from, 'claude');
+  assert.equal(as('I’ll take a look tonight.').from, 'person');
+});

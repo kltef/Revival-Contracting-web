@@ -25,6 +25,7 @@ export const handler: Schema['contentApi']['functionHandler'] = async (event) =>
       repo: process.env.GITHUB_REPO,
       base: process.env.CONTENT_BASE_BRANCH || 'main',
       getObject,
+      routine: { url: process.env.ROUTINE_FIRE_URL, token: process.env.ROUTINE_TOKEN },
     });
     return await api.run(action, parsed, { editorName });
   } catch (e) {

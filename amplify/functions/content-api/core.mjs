@@ -1,6 +1,6 @@
 // The admin page's website editor talks to GitHub through this function, so the GitHub token
-// never reaches the browser. Every edit becomes a pull request; the review workflow in
-// .github/workflows/content-review.yml decides whether it goes live.
+// never reaches the browser. Every edit becomes a pull request, and Claude's website-edit routine
+// (docs/website-edit-routine.md) decides whether it goes live.
 import {
   CONTENT_FILE, UPLOAD_DIR, UPLOAD_SRC_PREFIX, MAX_UPLOAD_BYTES, IMAGE_TYPES,
   applyChanges, checkPolicy, describePath, getAt, isImageSrc, serialize,
@@ -10,6 +10,9 @@ export const LABEL = 'content-change';
 export const NEEDS_HUMAN = 'needs-human';
 export const LIVE = 'live';
 export const EDITOR_MARK = '<!-- website-editor-message -->';
+// Comments Claude's website-edit routine posts start with one of these (they appear under the
+// GitHub account that owns the routine, so the marker is what identifies them).
+export const CLAUDE_MARKS = ['<!-- content-review -->', '<!-- content-reply -->', '<!-- content-status -->'];
 const UPLOAD_KEY = /^content-uploads\/[\w.-]+$/;
 
 const b64 = s => Buffer.from(s, 'utf8').toString('base64');
@@ -17,7 +20,7 @@ const unb64 = s => Buffer.from(s, 'base64').toString('utf8');
 
 class UserError extends Error {}
 
-export function createApi({ token, repo, base = 'main', fetch: fetchImpl = fetch, getObject, now = () => Date.now() }) {
+export function createApi({ token, repo, base = 'main', fetch: fetchImpl = fetch, getObject, now = () => Date.now(), routine = {} }) {
   if (!token) throw new UserError('The website editor isn’t connected to GitHub yet (GITHUB_TOKEN is not set).');
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo || '')) throw new UserError('GITHUB_REPO is not set.');
 
@@ -103,7 +106,8 @@ export function createApi({ token, repo, base = 'main', fetch: fetchImpl = fetch
     ].join('\n');
     const pr = await gh('POST', '/pulls', { title: summary, head: branch, base, body });
     await gh('POST', `/issues/${pr.number}/labels`, { labels: [LABEL] });
-    if (String(note).trim()) await postMessage(pr.number, note, editorName);
+    if (String(note).trim()) await gh('POST', `/issues/${pr.number}/comments`, { body: editorComment(note, editorName) });
+    await wakeRoutine(pr.number, 'new-edit');
     return { number: pr.number, needsPerson: holds.length > 0, holds: holds.map(h => h.reason) };
   }
 
@@ -115,7 +119,33 @@ export function createApi({ token, repo, base = 'main', fetch: fetchImpl = fetch
   async function postMessage(number, text, editorName) {
     if (!String(text).trim()) throw new UserError('Type a message first.');
     await gh('POST', `/issues/${number}/comments`, { body: editorComment(text, editorName) });
+    await wakeRoutine(number, 'message');
     return { ok: true };
+  }
+
+  // Start Claude's website-edit routine (a Claude Code scheduled task with an API trigger).
+  // The payload only says which pull request to look at; the routine reads everything else from GitHub.
+  // Fired once, never retried (each call starts a new session); the routine's hourly run catches
+  // anything a failed call missed.
+  async function wakeRoutine(number, event) {
+    if (!routine.url || !routine.token) return false;
+    try {
+      const res = await fetchImpl(routine.url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${routine.token}`,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'experimental-cc-routine-2026-04-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: `${event === 'message' ? 'New editor message' : 'New website edit'} on pull request #${number} in ${repo}.` }),
+      });
+      if (!res.ok) console.error(`Routine call failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
+      return res.ok;
+    } catch (e) {
+      console.error('Routine call failed', e);
+      return false;
+    }
   }
 
   return {
@@ -163,8 +193,8 @@ export function toMessage(c) {
     const m = c.body.slice(EDITOR_MARK.length).match(/^\s*\*\*Message from (.+?) \(website editor\):\*\*\n\n([\s\S]*)$/);
     return { from: 'editor', name: m ? m[1] : 'Website editor', text: m ? m[2] : c.body, at };
   }
-  const bot = c.user?.type === 'Bot' || c.user?.login === 'github-actions[bot]';
-  return { from: bot ? 'claude' : 'person', name: bot ? 'Claude' : (c.user?.login || 'Anthony'), text: c.body.replace(/<!--[\s\S]*?-->\s*/g, '').trim(), at };
+  const claude = CLAUDE_MARKS.some(m => c.body.startsWith(m));
+  return { from: claude ? 'claude' : 'person', name: claude ? 'Claude' : 'Anthony', text: c.body.replace(/<!--[\s\S]*?-->\s*/g, '').trim(), at };
 }
 
 export { UserError };

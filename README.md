@@ -5,7 +5,7 @@ The site is a React app built with [Vite](https://vite.dev). Its backend runs on
 - **Gallery** (Projects page): photos and their order are managed from the admin page and stored in S3. Until any are added there, the site shows the 10 built-in photos in `public/photos/`.
 - **Estimate requests** (Contact page) and **reviews** (Reviews page): saved to the database for you to read in the admin page. Visitors can send them, but only a signed-in admin can read them. Reviews you publish from the admin page appear on the Reviews page.
 - **Admin page** at `/admin/`: sign in to manage the gallery and read submissions. Only accounts you create in the Cognito console can sign in; self sign-up is switched off.
-- **Website editor** at `/?edit`: the real site with editing turned on. Click words to change them, or use **Change photo**. Each batch of edits becomes a GitHub pull request that Claude reviews and publishes, or holds for a person. See [Website editor](#website-editor).
+- **Website editor** at `/?edit`: the real site with editing turned on. Click words to change them, or use **Change photo**. Each batch of edits becomes a GitHub pull request that Claude (a Claude Code scheduled task) reviews and publishes, or holds for a person. See [Website editor](#website-editor).
 
 ## Project layout
 
@@ -17,9 +17,9 @@ src/content/site.json every word and photo on the public pages (what the editor 
 src/edit/             inline website editor (/?edit), loaded only for signed-in editors
 src/admin/            admin page: sign-in, gallery manager, submissions, sent website edits
 src/lib/              shared code (built-in gallery, service ordering, website-edit rules)
-amplify/functions/    content-api: turns website edits into GitHub pull requests
-scripts/              website-edit review, reply and live-check scripts run by GitHub Actions
-.github/workflows/    CI, plus the website-edit review, messages and live check
+amplify/functions/    content-api: turns website edits into GitHub pull requests and wakes Claude's routine
+scripts/              rule check and live check that Claude's website-edit routine runs
+docs/                 website-edit-routine.md: how to set up the routine, and its prompt
 public/               photos, video, favicon and 404.html, copied as-is
 amplify/              backend: auth, data (database) and storage
 amplify.yml           Amplify Hosting build settings
@@ -66,22 +66,21 @@ What can be edited is limited to the existing words and photos in `src/content/s
 ### What happens to an edit
 
 1. The admin page's `content-api` function (the GitHub token never reaches the browser) commits the new `site.json` and any new photos (into `public/photos/uploads/`) to a `content/<time>` branch and opens a pull request labeled `content-change`.
-2. **Website edit review** (`.github/workflows/content-review.yml`) checks the rules in `src/lib/content-edit.mjs`: only `site.json` and new photos may change; same structure; no contact-detail, link or web-address changes; no code-like text; photos must exist. Anything outside the rules is labeled `needs-human` without asking Claude.
-3. Otherwise Claude reviews the wording and any new photos and either approves or holds. Held requests get `needs-human` and a message to the editor.
-4. Approved edits wait for **CI** (`build-and-test`) to pass, get an approving review, and are squash-merged. Amplify then deploys `main`, so GitHub and the live site stay the same.
-5. The workflow polls `<SITE_URL>/content.json` until the live site shows the edit, then labels the request `live`. If it doesn't appear within 40 minutes, it's labeled `needs-human`. When you merge a held request yourself, **Website edit live check** does the same.
-6. A message the editor writes in **Sent changes** is posted as a PR comment; **Website edit messages** has Claude reply. Comment on the PR yourself to answer as Anthony.
+2. It then calls the API trigger of **Claude's website-edit routine**, a Claude Code scheduled task set up at claude.ai/code/routines (see [docs/website-edit-routine.md](docs/website-edit-routine.md)). The call only names the pull request; it's made once and never retried.
+3. In that session Claude runs `scripts/content-check.mjs` from main's copy of the repo. It applies the rules in `src/lib/content-edit.mjs`: only `site.json` and new photos may change; same structure; no contact-detail, link or web-address changes; no code-like text; photos must exist. Anything outside the rules is labeled `needs-human` for Anthony.
+4. Otherwise Claude reviews the wording and looks at any new photos, runs `npm test` on the edit, and either squash-merges it or labels it `needs-human` with a note to the editor and a reason for Anthony. Amplify deploys `main`, so GitHub and the live site stay the same.
+5. Claude runs `scripts/content-live-check.mjs`, which watches `/content.json` on the live site until the edit shows, then labels the request `live`.
+6. A message the editor writes in **Sent changes** is posted as a PR comment and wakes the routine, and Claude replies. Comment on the PR yourself to answer as Anthony.
+7. The routine also runs every hour, to pick up anything a call missed, answer unanswered messages and finish live checks.
 
-The review and reply workflows run with `pull_request_target` / `issue_comment`, so they always use `main`'s copy of the workflow and scripts and never run code from the pull request.
+The routine acts as the GitHub account that owns it, so its comments and merges appear under that account. Comments starting with `<!-- content-review -->`, `<!-- content-reply -->` or `<!-- content-status -->` are shown to the editor as Claude's. Because everything appears as you, GitHub won't notify you about it; check **Sent changes** on the admin page, or filter pull requests by the `needs-human` label.
 
 ### One-time setup
 
 1. **GitHub token for the editor.** Create a fine-grained personal access token limited to this repository with *Contents*, *Pull requests* and *Issues* set to read and write. Save it as the backend secret `GITHUB_TOKEN`: Amplify console → your app → **Hosting → Secrets**, or `npx ampx sandbox secret set GITHUB_TOKEN` for a sandbox. The repository name is set in `amplify/functions/content-api/resource.ts`.
-2. **Claude API key.** In GitHub: **Settings → Secrets and variables → Actions → New repository secret** `ANTHROPIC_API_KEY`.
-3. **Live site address.** Same page, **Variables** tab: `SITE_URL`, e.g. `https://main.d123abc.amplifyapp.com`. Without it, merged edits are marked live without checking. Optional variable `REVIEW_MODEL` overrides the model (default `claude-opus-5-5`).
-4. **Let the workflow approve.** **Settings → Actions → General → Workflow permissions**: allow GitHub Actions to create and approve pull requests.
-5. **Protect `main` (recommended).** Require a pull request and the `build-and-test` status check before merging.
-6. **Editor names.** Messages on GitHub show the editor's Cognito `name` attribute (never their email). Set it when creating the user, or the name shows as "Website editor".
+2. **Claude's routine.** Follow [docs/website-edit-routine.md](docs/website-edit-routine.md): create the scheduled task with the prompt there, an hourly schedule and an API trigger, then save its fire URL and token as the backend secrets `ROUTINE_FIRE_URL` and `ROUTINE_TOKEN`. Runs count against the Claude subscription of the account that owns the task.
+3. **Branch protection (optional).** If `main` requires approving reviews, the routine can't merge, because GitHub doesn't let an account approve its own pull request. Protect `main` without required reviews, or merge held edits yourself.
+4. **Editor names.** Messages on GitHub show the editor's Cognito `name` attribute (never their email). Set it when creating the user, or the name shows as "Website editor".
 
 If this repository is public, edit requests and their messages are public too.
 
@@ -91,7 +90,7 @@ Put the video in `public/video/` named `portal.mp4` (or `portal.webm`).
 
 ## Tests
 
-Browser tests (Playwright + `node:test`) cover routing, the estimate and review forms, the gallery, the before/after slider, service ordering, the 404 page, the admin page and the `/?edit` entry. The website-edit rules, the `content-api` function and the review and reply scripts are tested against a fake GitHub and a fake Claude API (`tests/content*.test.js`). Static checks confirm referenced photos exist, in-page links resolve, images have alt text and ids are unique. `npm test` builds the site first, serves `dist/` locally and blocks all other network requests, so no backend is needed.
+Browser tests (Playwright + `node:test`) cover routing, the estimate and review forms, the gallery, the before/after slider, service ordering, the 404 page, the admin page and the `/?edit` entry. The website-edit rules and the `content-api` function are tested against a fake GitHub and routine endpoint, and the routine's scripts against a throwaway git repo and a fake live site (`tests/content*.test.js`). Static checks confirm referenced photos exist, in-page links resolve, images have alt text and ids are unique. `npm test` builds the site first, serves `dist/` locally and blocks all other network requests, so no backend is needed.
 
 ```
 npm install
