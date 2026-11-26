@@ -1,0 +1,189 @@
+{
+  "business": {
+    "phone": "(352) 720-3787",
+    "email": "Dan@Revival-Contracting.com",
+    "addressLines": "11635 CR 108\nOxford, FL 34484",
+    "serviceArea": ["The Villages", "Wildwood"],
+    "instagramUrl": "https://instagram.com/revival0815/",
+    "facebookUrl": "https://facebook.com/Revival-Contracting-Remodeling-2408792489344651/",
+    "footerTagline": "Residential remodeling in The Villages and Wildwood, Florida. It starts with a vision.",
+    "legal": "© 2026 Revival Contracting & Remodeling",
+    "license": "Florida licensed residential contractor · Lic. CRC1332446"
+  },
+
+  "home": {
+    "hero": {
+      "eyebrow": "Additions · Summer kitchens · Baths · The Villages, FL",
+      "titleStart": "Contracting that",
+      "titleScript": "starts with a vision.",
+      "lead": "A third-generation residential contractor serving Wildwood and The Villages. We handle the whole job, from the free estimate to the final walk-through, and you can follow progress in real time.",
+      "primaryButton": "Get a free estimate",
+      "secondaryButton": "See our work",
+      "trust": ["Florida licensed & insured", "Building since 1986", "3rd-generation family company"],
+      "photo": { "src": "photos/hero-house.jpg", "alt": "Florida home with stone gables, palm trees and a paver driveway", "position": "center 60%" },
+      "badgeNumber": "40",
+      "badgeSuffix": "+ yrs",
+      "badgeText": "of contracting experience, led by owner Dan Ekberg"
+    },
+    "services": {
+      "eyebrow": "What we build",
+      "title": "One contractor for the whole house",
+      "lead": "From small updates to major remodels, Revival manages every trade so your project runs on one schedule.",
+      "kitchen": { "title": "Custom kitchens", "text": "Cabinets, counters, layout changes and full kitchen, dining and entry remodels.", "photo": { "src": "photos/k-4.jpg", "alt": "" } },
+      "bath": { "title": "Bathrooms", "text": "Walk-in showers, double vanities and complete master bath remodels.", "photo": { "src": "photos/b-window.jpg", "alt": "", "position": "center 60%" } },
+      "addition": { "title": "Additions", "text": "Architecturally inspired space that matches your home." },
+      "outdoor": { "title": "Lanais & summer kitchens", "text": "Enclosures and outdoor kitchens built for Florida weather." },
+      "ctaTitle": "Not sure where to start?",
+      "ctaText": "Book a free, no-obligation estimate and we’ll talk through options at your home.",
+      "ctaButton": "Book an estimate"
+    },
+    "beforeAfter": {
+      "eyebrow": "Before & after",
+      "title": "Drag to see the difference",
+      "lead": "Real Revival projects in The Villages. Slide the handle to compare the original room with the finished remodel.",
+      "tabKitchen": "Kitchen remodel",
+      "tabBath": "Bath remodel",
+      "kitchen": { "before": { "src": "photos/k-before.jpg" }, "after": { "src": "photos/k-after.jpg" }, "label": "Kitchen" },
+      "bath": { "before": { "src": "photos/b-before.jpg" }, "after": { "src": "photos/b-vanity.jpg" }, "label": "Bathroom" }
+    },
+    "steps": {
+      "eyebrow": "How it works",
+      "title": "From first call to final walk-through",
+      "list": [
+        { "title": "Free estimate", "text": "We visit your home, listen to your vision and give you a no-obligation estimate." },
+        { "title": "Design & selections", "text": "Dan helps you choose layouts, finishes, fixtures and paint colors." },
+        { "title": "Schedule & portal", "text": "Your project goes on our scheduling system, with dates you can see online." },
+        { "title": "Build & check", "text": "Courteous crews do the work, and each trade's work is inspected before the next starts." },
+        { "title": "Final walk-through", "text": "We walk the finished space with you and make sure everything is right." }
+      ]
+    },
+    "portal": {
+      "eyebrow": "Always in the loop",
+      "title": "Track your project in real time",
+      "lead": "Revival runs on modern scheduling software, on site and in the office. Clients get an easy online portal with live progress updates.",
+      "checks": ["See which trade is coming and when", "Review selections and approve changes online", "Photos and notes as the work progresses"],
+      "videoButton": "Watch the portal video"
+    },
+    "reviews": {
+      "eyebrow": "Reviews",
+      "title": "Trusted by homeowners and neighbors",
+      "readAll": "Read all reviews",
+      "featured": {
+        "text": "Dan is “old school” when it comes to his trade; he insists on quality of workmanship and doing things right the first time.",
+        "name": "Rev. David H. Hornsby, Ret.",
+        "place": "Flowery Branch, GA",
+        "initials": "DH"
+      },
+      "second": {
+        "chips": ["Professionalism", "Punctuality", "Quality"],
+        "text": "“Dan was very attentive and checked the work after each worker. He and Jeanette helped with ideas and paint colors and other things I hadn’t considered.”",
+        "name": "Jeff Geuder",
+        "place": "Bathroom renovation",
+        "initials": "JG"
+      }
+    },
+    "cta": {
+      "title": "What’s your vision?",
+      "text": "Tell us about your kitchen, bath, lanai or addition. We’ll schedule a free, no-obligation estimate at your home in The Villages or Wildwood.",
+      "button": "Start my estimate"
+    }
+  },
+
+  "about": {
+    "title": "Three generations of",
+    "titleScript": "doing it right.",
+    "photo": { "src": "photos/about-house3.jpg", "alt": "Florida home with a paver driveway and patio with umbrella", "position": "55% center" },
+    "paragraphs": [
+      "**Revival Contracting & Remodeling is a third-generation residential contractor** built on experience, integrity, honesty and quality workmanship. We were founded on Christian principles.",
+      "Owner **Dan Ekberg** has owned and operated his own contracting companies since 1986. He is known in the Central Florida construction industry for his knowledge of the trade and the integrity he brings to every job site.",
+      "We run as a multi-disciplined, fast-paced residential contractor that treats quality and timeliness as essential. Dan helps clients with design ideas and selections. He supervises the work and ensures that everything has been done professionally and properly."
+    ],
+    "stats": [
+      { "value": "1986", "label": "Dan’s first contracting company" },
+      { "value": "3rd", "label": "generation of builders" },
+      { "value": "1", "label": "contractor managing every trade" }
+    ],
+    "principleSource": "From our employee handbook",
+    "principle": "“In the end, no matter the cost, always do the right thing by the customer.”",
+    "valuesEyebrow": "What we stand for",
+    "valuesTitle": "How we work",
+    "values": [
+      { "title": "Integrity", "text": "Straight answers, honest pricing and promises we keep." },
+      { "title": "Workmanship", "text": "Doing things right the first time, with every trade checked." },
+      { "title": "Timeliness", "text": "Modern scheduling so you always know who’s coming and when." },
+      { "title": "Respect", "text": "Courteous, professional crews who treat your home like their own." }
+    ]
+  },
+
+  "services": {
+    "title": "Every room,",
+    "titleScript": "one contractor.",
+    "lead": "Revival handles all aspects of remodeling, with relentless attention to detail, quality workmanship and efficient, timely execution.",
+    "mostRequested": "Most requested",
+    "list": [
+      {
+        "key": "kitchen", "tag": "Cook & gather", "title": "Custom kitchens",
+        "photo": { "src": "photos/k-1.jpg", "alt": "Remodeled kitchen" },
+        "text": "A remodeled kitchen is one of the best investments you can make in your home. We design around how you cook and gather, then build it with one contractor managing everything from start to finish.",
+        "items": "Cabinet design & install\nCountertops & backsplash\nRange walls & hoods\nKitchen, dining & entry remodels\nLighting & electrical\nFlooring"
+      },
+      {
+        "key": "bath", "tag": "Comfort & accessibility", "title": "Bathrooms",
+        "photo": { "src": "photos/b-vanity.jpg", "alt": "Remodeled bathroom vanity" },
+        "text": "From a single vanity swap to a full master bath, we remove what isn’t working and build a space that fits how you live now.",
+        "items": "Tub-to-shower conversions\nWalk-in & enclosed showers\nDouble vanities\nLinen closets & storage\nMake-up tables\nTile & fixtures"
+      },
+      {
+        "key": "outdoor", "tag": "Outdoor living", "title": "Lanai enclosures & summer kitchens",
+        "noPhoto": { "title": "Lanais & summer kitchens", "text": "Enjoy the Florida weather year round" },
+        "text": "Turn an open lanai into a room you use every day, or add an outdoor “summer” kitchen built for entertaining.",
+        "items": "Lanai enclosures\nOutdoor kitchens\nCovered patios\nGrill & prep stations"
+      },
+      {
+        "key": "addition", "tag": "More space", "title": "Home additions",
+        "noPhoto": { "title": "Additions", "text": "Room to grow, designed to match" },
+        "text": "Architecturally inspired additions that look like they were always part of your home, managed from plans and permits to finish.",
+        "items": "Bedroom & bath additions\nExpanded living areas\nPermits & inspections\nMatching rooflines & finishes"
+      }
+    ],
+    "faqEyebrow": "Questions",
+    "faqTitle": "Frequently asked",
+    "faq": [
+      { "q": "Is the estimate really free?", "a": "Yes. Every project starts with a free, no-obligation estimate at your home." },
+      { "q": "Where do you work?", "a": "We currently serve homes in The Villages and Wildwood, Florida." },
+      { "q": "How will I know what’s happening on my project?", "a": "You get access to our online portal with real-time progress updates, schedules and selections. We also tell you the dates and times each trade is coming." },
+      { "q": "Do you help with design choices?", "a": "Yes. Dan sits down with you to choose layouts, products, finishes and paint colors." },
+      { "q": "Are you licensed?", "a": "Yes. Revival is a Florida licensed residential contractor." }
+    ]
+  },
+
+  "projects": {
+    "title": "Our",
+    "titleScript": "work.",
+    "lead": "Projects we’ve completed in The Villages. Tap any photo to see it larger.",
+    "storyEyebrow": "Project story",
+    "storyTitle": "Master bathroom remodel",
+    "storyLead": "A dated bath with a separate tub became a double vanity, a linen closet, a make-up table and a new enclosed shower.",
+    "story": [
+      { "title": "Before", "photos": [
+        { "src": "photos/b-before.jpg", "alt": "Bathroom before" },
+        { "src": "photos/b-tub-before.jpg", "alt": "Bathtub before" }
+      ] },
+      { "title": "Demolition", "photos": [
+        { "src": "photos/b-demo1.jpg", "alt": "Vanity and tub demo" },
+        { "src": "photos/b-demo2.jpg", "alt": "Shower demo" }
+      ] },
+      { "title": "Finished", "photos": [
+        { "src": "photos/b-vanity.jpg", "alt": "Double vanity and linen closet" },
+        { "src": "photos/b-shower.jpg", "alt": "Toilet next to new enclosed shower" },
+        { "src": "photos/b-window.jpg", "alt": "Window area with make-up table" }
+      ] }
+    ]
+  },
+
+  "contact": {
+    "title": "Start with your",
+    "titleScript": "vision.",
+    "lead": "Tell us a little about your project. It takes about a minute, and we’ll reach out to schedule your free, no-obligation estimate."
+  }
+}

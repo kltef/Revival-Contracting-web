@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Page, PageHead } from '../Layout.jsx';
 import { hasBackend, listAll, publicBackend } from '../../amplify.js';
 import { DEFAULT_GALLERY, CATEGORIES, categoryTag } from '../../lib/gallery.mjs';
+import { content as c, Text } from '../../content/content.jsx';
 
 // Photos and their order are managed from /admin. Until any are saved there, the built-in set is shown.
 function useGallery() {
@@ -31,12 +32,6 @@ function useGallery() {
   return items;
 }
 
-const STORY = [
-  ['Before', [['photos/b-before.jpg', 'Bathroom before'], ['photos/b-tub-before.jpg', 'Bathtub before']]],
-  ['Demolition', [['photos/b-demo1.jpg', 'Vanity and tub demo'], ['photos/b-demo2.jpg', 'Shower demo']]],
-  ['Finished', [['photos/b-vanity.jpg', 'Double vanity and linen closet'], ['photos/b-shower.jpg', 'Toilet next to new enclosed shower'], ['photos/b-window.jpg', 'Window area with make-up table']]],
-];
-
 export default function Projects({ active }) {
   const items = useGallery();
   const [filter, setFilter] = useState('all');
@@ -53,8 +48,8 @@ export default function Projects({ active }) {
   return (
     <Page name="projects" active={active}>
       <PageHead crumb="Projects">
-        <h1>Our <span className="script">work.</span></h1>
-        <p className="lead">Projects we’ve completed in The Villages. Tap any photo to see it larger.</p>
+        <h1><Text path="projects.title" />{' '}<Text path="projects.titleScript" className="script" /></h1>
+        <Text path="projects.lead" as="p" className="lead" />
       </PageHead>
       <div className="band" style={{ paddingTop: 36 }}>
         <div className="wrap">
@@ -76,12 +71,12 @@ export default function Projects({ active }) {
       </div>
       <div className="band alt">
         <div className="wrap">
-          <div className="sec-head"><p className="eyebrow">Project story</p><h2>Master bathroom remodel</h2><p className="lead">A dated bath with a separate tub became a double vanity, a linen closet, a make-up table and a new enclosed shower.</p></div>
+          <div className="sec-head"><Text path="projects.storyEyebrow" as="p" className="eyebrow" /><Text path="projects.storyTitle" as="h2" /><Text path="projects.storyLead" as="p" className="lead" /></div>
           <div className="story">
-            {STORY.map(([title, photos], i) => (
-              <div className="col" key={title}>
-                <h3><span>{i + 1}</span>{title}</h3>
-                {photos.map(([src, alt]) => <div className="ph" key={src}><img src={src} alt={alt} /></div>)}
+            {c.projects.story.map((col, i) => (
+              <div className="col" key={col.title}>
+                <h3><span>{i + 1}</span>{col.title}</h3>
+                {col.photos.map(p => <div className="ph" key={p.src}><img src={p.src} alt={p.alt} /></div>)}
               </div>
             ))}
           </div>

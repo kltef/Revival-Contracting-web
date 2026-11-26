@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { content as c } from '../content/content.jsx';
 
+const BA = c.home.beforeAfter;
 const SETS = {
-  kitchen: ['photos/k-before.jpg', 'photos/k-after.jpg', 'Kitchen'],
-  bath: ['photos/b-before.jpg', 'photos/b-vanity.jpg', 'Bathroom'],
+  kitchen: [BA.kitchen.before.src, BA.kitchen.after.src, BA.kitchen.label],
+  bath: [BA.bath.before.src, BA.bath.after.src, BA.bath.label],
 };
-const TABS = [['kitchen', 'Kitchen remodel'], ['bath', 'Bath remodel']];
+const TABS = [['kitchen', BA.tabKitchen], ['bath', BA.tabBath]];
 
 export default function BeforeAfter() {
   const [tab, setTab] = useState('kitchen');       // selected tab
@@ -69,9 +71,9 @@ export default function BeforeAfter() {
   return (
     <>
       <div>
-        <p className="eyebrow">Before &amp; after</p>
-        <h2 style={{ marginTop: 12 }}>Drag to see the difference</h2>
-        <p className="lead" style={{ marginTop: 14 }}>Real Revival projects in The Villages. Slide the handle to compare the original room with the finished remodel.</p>
+        <p className="eyebrow">{BA.eyebrow}</p>
+        <h2 style={{ marginTop: 12 }}>{BA.title}</h2>
+        <p className="lead" style={{ marginTop: 14 }}>{BA.lead}</p>
         <div className="tabs" role="tablist" aria-label="Choose a project">
           {TABS.map(([key, text]) => (
             <button key={key} className="tab" role="tab" aria-selected={tab === key} data-ba={key} onClick={() => choose(key)}>{text}</button>
