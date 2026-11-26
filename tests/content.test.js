@@ -171,3 +171,46 @@ test('webhook: Claude reads a request and its photo, then reports status and rep
   assert.deepEqual((await hook({ action: 'pending' })).requests, []);
   await assert.rejects(hook({ action: 'update', id, status: 'merged' }), e => e.status === 400);
 });
+
+// Behaves like the real bucket for this function: it may list only inside its folders, so reading a
+// file that doesn't exist fails with AccessDenied, not NoSuchKey.
+function fakeS3(files = new Map(), { readable = ['editor-settings/', 'content-requests/', 'content-uploads/'] } = {}) {
+  const denied = () => Object.assign(new Error('Access Denied'), { name: 'AccessDenied', $metadata: { httpStatusCode: 403 } });
+  class Get { constructor(i) { this.op = 'get'; this.i = i; } }
+  class Put { constructor(i) { this.op = 'put'; this.i = i; } }
+  class List { constructor(i) { this.op = 'list'; this.i = i; } }
+  const s3 = {
+    async send(c) {
+      const { Key, Prefix } = c.i;
+      if (c.op === 'put') { files.set(Key, { bytes: Buffer.from(c.i.Body), contentType: c.i.ContentType }); return {}; }
+      if (c.op === 'list') {
+        if (!readable.some(p => Prefix.startsWith(p))) throw denied();
+        return { Contents: [...files.keys()].filter(k => k.startsWith(Prefix)).slice(0, c.i.MaxKeys ?? 1000).map(k => ({ Key: k })) };
+      }
+      if (!readable.some(p => Key.startsWith(p)) || !files.has(Key)) throw denied();
+      const f = files.get(Key);
+      return { ContentType: f.contentType, Body: { transformToByteArray: async () => new Uint8Array(f.bytes) } };
+    },
+  };
+  return { s3, files, commands: { GetObjectCommand: Get, PutObjectCommand: Put, ListObjectsV2Command: List } };
+}
+
+test('s3 store: a missing file reads as missing even though S3 says AccessDenied', async () => {
+  const { s3Store } = await import('../amplify/functions/content-api/s3-store.mjs');
+  const { s3, files, commands } = fakeS3(new Map([['content-uploads/a.jpg', jpeg]]));
+  const store = s3Store({ s3, bucket: 'b', ...commands });
+  const api = createApi({ store, content: site, fetch: async () => new Response('{}') });
+
+  // what the admin page does first: this used to fail with "Something went wrong"
+  assert.deepEqual(await api.run('settings', {}, { userId: 'anthony' }), { routineConnected: false, websiteKeySet: false, canChange: true, updatedAt: null });
+  assert.deepEqual(await api.run('list'), { requests: [] });
+  assert.equal((await api.run('saveSettings', { websiteKey: KEY }, { userId: 'anthony' })).websiteKeySet, true);
+  const { id } = await api.run('submit', { changes: [{ path: ['home', 'cta', 'title'], value: 'Ready?' }], uploads: [{ path: ['about', 'photo', 'src'], key: 'content-uploads/a.jpg' }] }, { editorName: 'Jeanette' });
+  assert.equal((await api.run('list')).requests[0].id, id);
+  assert.ok(files.has(`content-requests/${id}.json`));
+  assert.deepEqual((await api.hook({ authorization: `Bearer ${KEY}` }, '{"action":"pending"}')).requests.length, 1);
+
+  // a real permission problem still shows up as an error
+  const locked = s3Store({ s3: fakeS3(new Map([['secret/x.json', jpeg]]), { readable: [] }).s3, bucket: 'b', ...commands });
+  await assert.rejects(locked.getJson('editor-settings/settings.json'), /Access Denied/);
+});

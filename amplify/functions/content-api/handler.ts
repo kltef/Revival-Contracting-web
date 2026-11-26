@@ -1,6 +1,7 @@
 import { GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import content from '../../../src/content/site.json';
 import { createApi, HttpError, UserError, type Store } from './core.mjs';
+import { s3Store } from './s3-store.mjs';
 
 // Two ways in:
 //  - from the admin page and editor (AppSync, signed in): the contentApi mutation
@@ -8,34 +9,7 @@ import { createApi, HttpError, UserError, type Store } from './core.mjs';
 const s3 = new S3Client();
 const Bucket = process.env.revivalGallery_BUCKET_NAME;
 
-const store: Store = {
-  async getJson(key) {
-    const obj = await this.getBytes(key);
-    return obj ? JSON.parse(obj.bytes.toString('utf8')) : null;
-  },
-  async putJson(key, value) {
-    await s3.send(new PutObjectCommand({ Bucket, Key: key, Body: JSON.stringify(value), ContentType: 'application/json' }));
-  },
-  async list(prefix) {
-    const keys: string[] = [];
-    let ContinuationToken: string | undefined;
-    do {
-      const res = await s3.send(new ListObjectsV2Command({ Bucket, Prefix: prefix, ContinuationToken }));
-      keys.push(...(res.Contents ?? []).map(o => o.Key!).filter(Boolean));
-      ContinuationToken = res.NextContinuationToken;
-    } while (ContinuationToken);
-    return keys;
-  },
-  async getBytes(key) {
-    try {
-      const res = await s3.send(new GetObjectCommand({ Bucket, Key: key }));
-      return { bytes: Buffer.from(await res.Body!.transformToByteArray()), contentType: res.ContentType || '' };
-    } catch (e) {
-      if ((e as { name?: string }).name === 'NoSuchKey') return null;
-      throw e;
-    }
-  },
-};
+const store: Store = s3Store({ s3, bucket: Bucket, GetObjectCommand, PutObjectCommand, ListObjectsV2Command });
 
 const api = createApi({ store, content });
 
@@ -53,7 +27,8 @@ export const handler = async (event: UrlEvent | AppSyncEvent) => {
     } catch (e) {
       if (e instanceof HttpError) return json(e.status, { error: e.message });
       console.error(e);
-      return json(500, { error: 'Something went wrong' });
+      const err = e as { name?: string; message?: string };
+      return json(500, { error: `Something went wrong (${err.name || 'Error'}: ${String(err.message || '').slice(0, 160)})` });
     }
   }
 
@@ -70,6 +45,8 @@ export const handler = async (event: UrlEvent | AppSyncEvent) => {
   } catch (e) {
     console.error(e);
     if (e instanceof UserError) throw e;
-    throw new Error('Something went wrong. Please try again in a few minutes.');
+    // a short technical detail, so a problem can be reported without access to the AWS logs
+    const err = e as { name?: string; message?: string };
+    throw new Error(`Something went wrong. Please try again in a few minutes. (Details: ${err.name || 'Error'}: ${String(err.message || '').slice(0, 160)})`);
   }
 };
