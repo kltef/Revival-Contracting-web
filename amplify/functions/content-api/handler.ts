@@ -1,37 +1,75 @@
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import type { Schema } from '../../data/resource';
-import { createApi, UserError } from './core.mjs';
+import { GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import content from '../../../src/content/site.json';
+import { createApi, HttpError, UserError, type Store } from './core.mjs';
 
+// Two ways in:
+//  - from the admin page and editor (AppSync, signed in): the contentApi mutation
+//  - from Claude's routine (the function URL, see backend.ts): the webhook, with the website key
 const s3 = new S3Client();
+const Bucket = process.env.revivalGallery_BUCKET_NAME;
 
-// Photos the editor uploaded to S3 (content-uploads/*), read so they can be committed to GitHub
-async function getObject(key: string) {
-  const res = await s3.send(new GetObjectCommand({ Bucket: process.env.revivalGallery_BUCKET_NAME, Key: key }));
-  const bytes = Buffer.from(await res.Body!.transformToByteArray());
-  return { bytes, contentType: res.ContentType || '' };
-}
+const store: Store = {
+  async getJson(key) {
+    const obj = await this.getBytes(key);
+    return obj ? JSON.parse(obj.bytes.toString('utf8')) : null;
+  },
+  async putJson(key, value) {
+    await s3.send(new PutObjectCommand({ Bucket, Key: key, Body: JSON.stringify(value), ContentType: 'application/json' }));
+  },
+  async list(prefix) {
+    const keys: string[] = [];
+    let ContinuationToken: string | undefined;
+    do {
+      const res = await s3.send(new ListObjectsV2Command({ Bucket, Prefix: prefix, ContinuationToken }));
+      keys.push(...(res.Contents ?? []).map(o => o.Key!).filter(Boolean));
+      ContinuationToken = res.NextContinuationToken;
+    } while (ContinuationToken);
+    return keys;
+  },
+  async getBytes(key) {
+    try {
+      const res = await s3.send(new GetObjectCommand({ Bucket, Key: key }));
+      return { bytes: Buffer.from(await res.Body!.transformToByteArray()), contentType: res.ContentType || '' };
+    } catch (e) {
+      if ((e as { name?: string }).name === 'NoSuchKey') return null;
+      throw e;
+    }
+  },
+};
 
-type Claims = { name?: string; given_name?: string };
+const api = createApi({ store, content });
 
-export const handler: Schema['contentApi']['functionHandler'] = async (event) => {
-  const { action, payload } = event.arguments;
+type UrlEvent = { requestContext: { http: { method: string } }; headers?: Record<string, string>; body?: string; isBase64Encoded?: boolean };
+type AppSyncEvent = { arguments: { action: string; payload?: unknown }; identity?: { sub?: string; claims?: { sub?: string; name?: string; given_name?: string } } | null };
+
+const json = (statusCode: number, body: unknown) => ({ statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+export const handler = async (event: UrlEvent | AppSyncEvent) => {
+  if ('requestContext' in event && event.requestContext?.http) {
+    if (event.requestContext.http.method !== 'POST') return json(405, { error: 'Use POST' });
+    const body = event.isBase64Encoded ? Buffer.from(event.body ?? '', 'base64').toString('utf8') : (event.body ?? '');
+    try {
+      return json(200, await api.hook(event.headers ?? {}, body));
+    } catch (e) {
+      if (e instanceof HttpError) return json(e.status, { error: e.message });
+      console.error(e);
+      return json(500, { error: 'Something went wrong' });
+    }
+  }
+
+  const { action, payload } = (event as AppSyncEvent).arguments;
   const parsed = typeof payload === 'string' ? JSON.parse(payload) : (payload ?? {});
-  // The editor's name is shown on GitHub, so never use their email address here.
-  const claims = ((event.identity as { claims?: Claims } | null)?.claims) ?? {};
-  const editorName = claims.name || claims.given_name || 'Website editor';
+  const identity = (event as AppSyncEvent).identity ?? {};
+  // The editor's name is shown to Claude and Anthony, so never use their email address here.
+  const claims = identity.claims ?? {};
   try {
-    const api = createApi({
-      token: process.env.GITHUB_TOKEN,
-      repo: process.env.GITHUB_REPO,
-      base: process.env.CONTENT_BASE_BRANCH || 'main',
-      getObject,
-      routine: { url: process.env.ROUTINE_FIRE_URL, token: process.env.ROUTINE_TOKEN },
+    return await api.run(action, parsed, {
+      editorName: claims.name || claims.given_name || 'Website editor',
+      userId: identity.sub || claims.sub,
     });
-    return await api.run(action, parsed, { editorName });
   } catch (e) {
     console.error(e);
-    // Only messages written for the editor are passed on; anything else stays in the logs.
     if (e instanceof UserError) throw e;
-    throw new Error('Something went wrong talking to GitHub. Please try again in a few minutes.');
+    throw new Error('Something went wrong. Please try again in a few minutes.');
   }
 };

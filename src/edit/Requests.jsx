@@ -25,19 +25,19 @@ function Progress({ status, held }) {
   );
 }
 
-function Thread({ client, number, onBack }) {
+function Thread({ client, id, onBack }) {
   const [t, setT] = useState(null);
   const [error, setError] = useState('');
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
-  const load = useCallback(() => call(client, 'thread', { number }).then(setT, e => setError(e.message)), [client, number]);
+  const load = useCallback(() => call(client, 'thread', { id }).then(setT, e => setError(e.message)), [client, id]);
   useEffect(() => { load(); const id = setInterval(load, 60_000); return () => clearInterval(id); }, [load]);
 
   const send = async e => {
     e.preventDefault();
     if (!text.trim()) return;
     setSending(true); setError('');
-    try { await call(client, 'message', { number, text }); setText(''); await load(); }
+    try { await call(client, 'message', { id, text }); setText(''); await load(); }
     catch (x) { setError('Your message couldn’t be sent. Please try again. ' + x.message); }
     setSending(false);
   };
@@ -82,7 +82,7 @@ export default function Requests({ client, open: openInitial = null }) {
   useEffect(() => { load(); const id = setInterval(load, 60_000); return () => clearInterval(id); }, [load]);
   useEffect(() => setOpen(openInitial), [openInitial]);
 
-  if (open) return <Thread client={client} number={open} onBack={() => { setOpen(null); load(); }} />;
+  if (open) return <Thread client={client} id={open} onBack={() => { setOpen(null); load(); }} />;
   return (
     <div className="rq">
       <p className="rq-muted">{TIMING}</p>
@@ -90,8 +90,8 @@ export default function Requests({ client, open: openInitial = null }) {
       {list === null ? <p className="rq-muted">Loading…</p> : list.length === 0 ? <p className="rq-muted">You haven’t sent any changes yet.</p> : (
         <ul className="rq-list">
           {list.map(r => (
-            <li key={r.number}>
-              <button type="button" onClick={() => setOpen(r.number)}>
+            <li key={r.id}>
+              <button type="button" onClick={() => setOpen(r.id)}>
                 <span><b>{r.title}</b><small>Sent {when(r.createdAt)}</small></span>
                 <span className={'rq-chip ' + r.status}>{r.statusText}</span>
               </button>

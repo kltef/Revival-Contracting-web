@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { applyChanges, checkPolicy, diffContent, serialize, CONTENT_FILE } from '../src/lib/content-edit.mjs';
-import { createApi, statusOf, toMessage, EDITOR_MARK } from '../amplify/functions/content-api/core.mjs';
+import { createApi, SETTINGS_KEY } from '../amplify/functions/content-api/core.mjs';
 
 const site = JSON.parse(fs.readFileSync(new URL('../src/content/site.json', import.meta.url), 'utf8'));
 const modified = [{ path: CONTENT_FILE, status: 'modified' }];
@@ -54,135 +54,120 @@ test('applyChanges rejects fields the editor may not touch', () => {
   assert.equal(diffContent(site, edit(['home', 'hero', 'lead'], 'a\r\nb'))[0].after, 'a\nb');
 });
 
-// A minimal in-memory GitHub that records what the function sends
-function fakeGitHub() {
-  const calls = [], issues = new Map(), comments = new Map();
-  let n = 0;
-  const reply = (status, body) => Promise.resolve(new Response(JSON.stringify(body), { status }));
-  const fetch = async (url, init = {}) => {
-    const path = url.replace('https://api.github.com/repos/kltef/site', '');
-    const body = init.body ? JSON.parse(init.body) : undefined;
-    calls.push({ method: init.method, path, body });
-    if (init.method === 'GET' && path.startsWith('/git/ref/heads/main')) return reply(200, { object: { sha: 'base1' } });
-    if (init.method === 'GET' && path.startsWith('/contents/')) return reply(200, { content: Buffer.from(serialize(site)).toString('base64') });
-    if (init.method === 'GET' && path === '/git/commits/base1') return reply(200, { tree: { sha: 'tree0' } });
-    if (path === '/git/blobs') return reply(201, { sha: 'blob' + ++n });
-    if (path === '/git/trees') return reply(201, { sha: 'tree1' });
-    if (path === '/git/commits') return reply(201, { sha: 'commit1' });
-    if (path === '/git/refs') return reply(201, {});
-    if (path === '/pulls') { issues.set(7, { number: 7, title: body.title, state: 'open', labels: [], pull_request: {}, created_at: 'now' }); return reply(201, { number: 7 }); }
-    const lab = path.match(/^\/issues\/(\d+)\/labels$/);
-    if (lab) { issues.get(+lab[1]).labels.push(...body.labels.map(name => ({ name }))); return reply(200, []); }
-    const com = path.match(/^\/issues\/(\d+)\/comments/);
-    if (com && init.method === 'POST') { (comments.get(+com[1]) || comments.set(+com[1], []).get(+com[1])).push({ body: body.body, user: { login: 'anthony' }, created_at: 'now' }); return reply(201, {}); }
-    if (com) return reply(200, comments.get(+com[1]) || []);
-    const iss = path.match(/^\/issues\/(\d+)$/);
-    if (iss) return issues.has(+iss[1]) ? reply(200, issues.get(+iss[1])) : reply(404, { message: 'Not Found' });
-    if (path.startsWith('/issues?')) return reply(200, [...issues.values()]);
-    return reply(404, { message: 'unexpected ' + path });
+// An in-memory stand-in for the S3 bucket
+function memoryStore(files = {}) {
+  const m = new Map(Object.entries(files));
+  return {
+    m,
+    async getJson(k) { return m.has(k) ? JSON.parse(m.get(k).bytes.toString()) : null; },
+    async putJson(k, v) { m.set(k, { bytes: Buffer.from(JSON.stringify(v)), contentType: 'application/json' }); },
+    async list(prefix) { return [...m.keys()].filter(k => k.startsWith(prefix)); },
+    async getBytes(k) { return m.get(k) || null; },
   };
-  return { fetch, calls, issues, comments };
+}
+const jpeg = { bytes: Buffer.from('fake-jpeg'), contentType: 'image/jpeg' };
+const KEY = 'k'.repeat(40);
+const FIRE = 'https://api.anthropic.com/v1/claude_code/routines/trig_01abc/fire';
+
+function setup({ connected = true } = {}) {
+  const store = memoryStore({ 'content-uploads/a.jpg': jpeg });
+  const fires = [];
+  let t = 1795000000000;
+  const fetch = async (url, init) => { fires.push({ url, headers: init.headers, body: JSON.parse(init.body) }); return new Response('{}', { status: 200 }); };
+  const api = createApi({ store, content: site, fetch, now: () => t++, random: () => 'abc123' });
+  const ready = connected
+    ? api.run('saveSettings', { fireUrl: FIRE, fireToken: 'sk-ant-oat01-' + 'x'.repeat(30), websiteKey: KEY }, { userId: 'anthony' })
+    : Promise.resolve();
+  const hook = (body, key = KEY) => api.hook({ authorization: `Bearer ${key}` }, JSON.stringify(body));
+  return { store, fires, api, ready, hook };
 }
 
-const upload = { bytes: Buffer.from('fake-jpeg'), contentType: 'image/jpeg' };
-const api = (gh, extra = {}) => createApi({ token: 't', repo: 'kltef/site', fetch: gh.fetch, getObject: async () => upload, now: () => 1700, ...extra });
-
-test('content-api: submit commits the content and photo, opens a labeled PR and posts the note', async () => {
-  const gh = fakeGitHub();
-  const r = await api(gh).run('submit', {
+test('editor: sending saves a change request and wakes Claude with just its id', async () => {
+  const { api, store, fires, ready } = setup();
+  await ready;
+  const r = await api.run('submit', {
     changes: [{ path: ['home', 'hero', 'lead'], value: 'New intro' }],
-    uploads: [{ path: ['about', 'photo', 'src'], key: 'content-uploads/abc.jpg' }],
+    uploads: [{ path: ['about', 'photo', 'src'], key: 'content-uploads/a.jpg' }],
     note: 'Please use the new photo',
-  }, { editorName: 'Jeanette' });
-  assert.deepEqual(r, { number: 7, needsPerson: false, holds: [] });
+  }, { editorName: 'Jeanette <j@x.com>' });
+  assert.equal(r.needsPerson, false);
+  const saved = await store.getJson(`content-requests/${r.id}.json`);
+  assert.equal(saved.title, 'Website edit: 2 changes');
+  assert.equal(saved.editorName, 'Jeanette');
+  assert.deepEqual(saved.changes, [{ path: ['home', 'hero', 'lead'], before: site.home.hero.lead, after: 'New intro' }]);
+  assert.equal(saved.photos[0].file, `${r.id}-1.jpg`);
+  assert.equal(saved.messages[0].text, 'Please use the new photo');
 
-  const tree = gh.calls.find(c => c.path === '/git/trees').body;
-  assert.equal(tree.base_tree, 'tree0');
-  assert.deepEqual(tree.tree.map(t => t.path), ['public/photos/uploads/1700-1.jpg', CONTENT_FILE]);
-  const contentBlob = gh.calls.filter(c => c.path === '/git/blobs')[1].body;
-  const written = JSON.parse(Buffer.from(contentBlob.content, 'base64').toString());
-  assert.equal(written.home.hero.lead, 'New intro');
-  assert.equal(written.about.photo.src, 'photos/uploads/1700-1.jpg');
-
-  assert.deepEqual(gh.calls.find(c => c.path === '/git/refs').body, { ref: 'refs/heads/content/1700', sha: 'commit1' });
-  const pr = gh.calls.find(c => c.path === '/pulls').body;
-  assert.equal(pr.base, 'main');
-  assert.match(pr.body, /Jeanette/);
-  assert.deepEqual(gh.issues.get(7).labels.map(l => l.name), ['content-change']);
-  assert.ok(gh.comments.get(7)[0].body.startsWith(EDITOR_MARK));
-});
-
-test('content-api: contact detail edits are flagged for a person', async () => {
-  const gh = fakeGitHub();
-  const r = await api(gh).run('submit', { changes: [{ path: ['business', 'phone'], value: '(352) 555-0100' }] });
-  assert.equal(r.needsPerson, true);
-  assert.match(gh.calls.find(c => c.path === '/pulls').body.body, /Needs a person/);
-});
-
-test('content-api: rejects bad requests before touching GitHub', async () => {
-  const gh = fakeGitHub();
-  await assert.rejects(api(gh).run('submit', {}), /no changes/);
-  await assert.rejects(api(gh).run('submit', { changes: [{ path: ['home', 'hero', 'lead'], value: site.home.hero.lead }] }), /match what/);
-  await assert.rejects(api(gh).run('submit', { uploads: [{ path: ['home', 'hero', 'lead'], key: 'content-uploads/a.jpg' }] }), /can’t go/);
-  await assert.rejects(api(gh, { getObject: async () => ({ bytes: Buffer.from('x'), contentType: 'image/gif' }) })
-    .run('submit', { uploads: [{ path: ['about', 'photo', 'src'], key: 'content-uploads/a.gif' }] }), /JPEG/);
-  await assert.rejects(api(gh).run('thread', { number: 99 }), /Unknown change request/);
-  assert.ok(!gh.calls.some(c => c.path === '/pulls'));
-  assert.throws(() => createApi({ repo: 'a/b', getObject() {} }), /GITHUB_TOKEN/);
-});
-
-test('content-api: messages and status come back in the editor’s terms', async () => {
-  const gh = fakeGitHub();
-  const a = api(gh);
-  await a.run('submit', { changes: [{ path: ['home', 'cta', 'title'], value: 'Dream big?' }] }, { editorName: 'Jeanette <j@x.com>' });
-  await a.run('message', { number: 7, text: 'Is this okay?' }, { editorName: 'Jeanette' });
-  gh.comments.get(7).push({ body: '<!-- content-reply -->\nYes, it looks good.', user: { login: 'github-actions[bot]', type: 'Bot' }, created_at: 'now' });
-  const t = await a.run('thread', { number: 7 });
-  assert.equal(t.status, 'checking');
-  assert.deepEqual(t.messages.map(m => [m.from, m.name, m.text]), [['editor', 'Jeanette', 'Is this okay?'], ['claude', 'Claude', 'Yes, it looks good.']]);
-  assert.equal(gh.calls.find(c => c.path === '/pulls').body.body.includes('j@x.com'), false, 'email stripped from the name');
-  assert.equal((await a.run('list')).requests[0].statusText, 'Automatic check');
-});
-
-test('statusOf maps PR state to what the editor sees', () => {
-  const s = (labels, extra = {}) => statusOf({ state: 'open', labels: labels.map(name => ({ name })), pull_request: {}, ...extra }).status;
-  assert.equal(s(['content-change']), 'checking');
-  assert.equal(s(['content-change', 'needs-human']), 'human');
-  assert.equal(s(['content-change'], { state: 'closed', pull_request: { merged_at: 'x' } }), 'publishing');
-  assert.equal(s(['content-change', 'live'], { state: 'closed', pull_request: { merged_at: 'x' } }), 'live');
-  assert.equal(s(['content-change'], { state: 'closed' }), 'closed');
-  assert.equal(toMessage({ body: 'plain comment', user: { login: 'kltef' }, created_at: 'x' }).from, 'person');
-});
-
-test('content-api: wakes Claude’s routine after an edit or a message, and carries on if that fails', async () => {
-  const gh = fakeGitHub();
-  const fires = [];
-  const fetch = async (url, init) => {
-    if (url.startsWith('https://api.anthropic.com/')) { fires.push({ url, headers: init.headers, body: JSON.parse(init.body) }); return new Response('{}', { status: fires.length > 1 ? 503 : 200 }); }
-    return gh.fetch(url, init);
-  };
-  const routine = { url: 'https://api.anthropic.com/v1/claude_code/routines/trig_1/fire', token: 'sk-ant-oat01-x' };
-  const a = createApi({ token: 't', repo: 'kltef/site', fetch, getObject: async () => upload, now: () => 1700, routine });
-  await a.run('submit', { changes: [{ path: ['home', 'hero', 'lead'], value: 'New' }], note: 'Hi' });
-  assert.equal(fires.length, 1, 'one call per edit, even with a note');
-  assert.equal(fires[0].url, routine.url);
-  assert.equal(fires[0].headers.Authorization, 'Bearer sk-ant-oat01-x');
+  assert.equal(fires.length, 1);
+  assert.equal(fires[0].url, FIRE);
+  assert.match(fires[0].headers.Authorization, /^Bearer sk-ant-oat01-/);
   assert.equal(fires[0].headers['anthropic-version'], '2023-06-01');
-  assert.equal(fires[0].body.text, 'New website edit on pull request #7 in kltef/site.');
+  assert.equal(fires[0].body.text, `New website edit: request ${r.id}`);
 
-  // a failed call (503) doesn't fail the editor's message; the routine's hourly run picks it up
-  assert.deepEqual(await a.run('message', { number: 7, text: 'Thanks' }), { ok: true });
-  assert.equal(fires[1].body.text, 'New editor message on pull request #7 in kltef/site.');
-
-  // not configured: no call at all
-  const quiet = fakeGitHub();
-  await api(quiet).run('submit', { changes: [{ path: ['home', 'hero', 'lead'], value: 'New' }] });
-  assert.ok(!quiet.calls.some(c => !c.path.startsWith('/')));
+  const list = await api.run('list');
+  assert.deepEqual(list.requests.map(x => [x.id, x.statusText]), [[r.id, 'Claude is checking it']]);
 });
 
-test('toMessage: Claude’s comments are recognized by their marker, not their author', () => {
-  const as = body => toMessage({ body, user: { login: 'kltef' }, created_at: 'x' });
-  assert.deepEqual([as('<!-- content-review -->\nLooks good!').from, as('<!-- content-review -->\nLooks good!').text], ['claude', 'Looks good!']);
-  assert.equal(as('<!-- content-status -->\nLive').from, 'claude');
-  assert.equal(as('I’ll take a look tonight.').from, 'person');
+test('editor: contact detail edits are flagged; bad requests are refused', async () => {
+  const { api, fires } = setup({ connected: false });
+  assert.equal((await api.run('submit', { changes: [{ path: ['business', 'phone'], value: '(352) 555-0100' }] })).needsPerson, true);
+  assert.equal(fires.length, 0, 'not connected yet: saved, nobody woken');
+  await assert.rejects(api.run('submit', {}), /no changes/);
+  await assert.rejects(api.run('submit', { changes: [{ path: ['home', 'hero', 'lead'], value: site.home.hero.lead }] }), /match what/);
+  await assert.rejects(api.run('submit', { changes: [{ path: ['about', 'photo', 'src'], value: 'photos/x.jpg' }] }), /uploading/);
+  await assert.rejects(api.run('submit', { uploads: [{ path: ['home', 'hero', 'lead'], key: 'content-uploads/a.jpg' }] }), /can’t go/);
+  await assert.rejects(api.run('submit', { uploads: [{ path: ['about', 'photo', 'src'], key: 'content-uploads/missing.jpg' }] }), /didn’t finish/);
+  await assert.rejects(api.run('thread', { id: '../../editor-settings/settings' }), /Unknown change request/);
+});
+
+test('settings: keys are write-only, and only the first person to connect can change them', async () => {
+  const { api, store, ready } = setup();
+  await ready;
+  const saved = await store.getJson(SETTINGS_KEY);
+  assert.equal(saved.keyHash.length, 64);
+  assert.ok(!JSON.stringify(saved).includes(KEY), 'website key stored only as a hash');
+  const status = await api.run('settings', {}, { userId: 'anthony' });
+  assert.deepEqual(status, { routineConnected: true, websiteKeySet: true, canChange: true, updatedAt: status.updatedAt });
+  assert.ok(!('fireToken' in status));
+  assert.equal((await api.run('settings', {}, { userId: 'jeanette' })).canChange, false);
+  await assert.rejects(api.run('saveSettings', { websiteKey: 'j'.repeat(40) }, { userId: 'jeanette' }), /Only the person/);
+  await assert.rejects(api.run('saveSettings', { fireUrl: 'https://evil.example/fire' }, { userId: 'anthony' }), /fire URL/);
+});
+
+test('webhook: needs the website key', async () => {
+  const { hook, ready } = setup();
+  await assert.rejects(setup({ connected: false }).hook({ action: 'pending' }), e => e.status === 503);
+  await ready;
+  await assert.rejects(hook({ action: 'pending' }, 'wrong-key'), e => e.status === 401);
+  await assert.rejects(hook({ action: 'pending' }, ''), e => e.status === 401);
+  assert.deepEqual(await hook({ action: 'pending' }), { requests: [] });
+});
+
+test('webhook: Claude reads a request and its photo, then reports status and replies', async () => {
+  const { api, hook, ready, fires } = setup();
+  await ready;
+  const { id } = await api.run('submit', { changes: [{ path: ['home', 'cta', 'title'], value: 'Dream big?' }], uploads: [{ path: ['about', 'photo', 'src'], key: 'content-uploads/a.jpg' }] }, { editorName: 'Jeanette' });
+
+  assert.deepEqual((await hook({ action: 'pending' })).requests.map(r => [r.id, r.needs]), [[id, ['needs review']]]);
+  const { request } = await hook({ action: 'get', id });
+  assert.equal(request.changes[0].after, 'Dream big?');
+  const photo = await hook({ action: 'photo', id, file: request.photos[0].file });
+  assert.equal(Buffer.from(photo.base64, 'base64').toString(), 'fake-jpeg');
+  await assert.rejects(hook({ action: 'photo', id, file: 'other.jpg' }), e => e.status === 404);
+
+  await hook({ action: 'update', id, status: 'human', prNumber: 31, message: 'Anthony will look at the new photo within a day.' });
+  let t = await api.run('thread', { id });
+  assert.deepEqual([t.status, t.statusText, t.held], ['human', 'Waiting for Anthony’s review', true]);
+  assert.deepEqual(t.messages.map(m => [m.from, m.name]), [['claude', 'Claude']]);
+
+  // the editor writes back; Claude is woken and the request shows up as needing an answer
+  await api.run('message', { id, text: 'Is the photo okay?' }, { editorName: 'Jeanette' });
+  assert.equal(fires.at(-1).body.text, `New editor message: request ${id}`);
+  assert.deepEqual((await hook({ action: 'pending' })).requests[0].needs, ['check whether Anthony merged or closed the pull request', 'editor message to answer']);
+  await hook({ action: 'update', id, message: 'Yes, it looks great.', from: 'anthony' });
+  await hook({ action: 'update', id, status: 'live' });
+  t = await api.run('thread', { id });
+  assert.deepEqual([t.status, t.held, t.messages.at(-1).name], ['live', true, 'Anthony']);
+  assert.deepEqual((await hook({ action: 'pending' })).requests, []);
+  await assert.rejects(hook({ action: 'update', id, status: 'merged' }), e => e.status === 400);
 });

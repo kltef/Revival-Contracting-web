@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import App from '../site/App.jsx';
-import { ContentProvider, EditContext, Rich } from '../content/content.jsx';
+import { ContentProvider, EditContext, Rich, content as published } from '../content/content.jsx';
 import { diffContent, isProtectedPath, pathKey, MAX_TEXT } from '../lib/content-edit.mjs';
 import Requests from './Requests.jsx';
 import { call, shrink, where, fieldName, TIMING } from './shared.js';
@@ -238,10 +238,12 @@ function PhotoDialog({ path, image, photo, original, onPhoto, onAlt, onClose }) 
 // ---------- the editor ----------
 
 export default function EditMode({ client, upload, exitHref = location.pathname, onSignOut }) {
-  const [base, setBase] = useState(null);       // the content as it is on GitHub's main branch
-  const [draft, setDraft] = useState(null);
+  // the content this version of the site was built from, i.e. what visitors see right now
+  const base = published;
+  // bring back unsent edits from last time, where that spot hasn't changed since
+  const [draft, setDraft] = useState(() => (local.get(DRAFT) || []).reduce(
+    (d, c) => (getIn(base, c.path) === c.before ? setIn(d, c.path, c.after) : d), base));
   const [photos, setPhotos] = useState({});     // image path → { blob, url } chosen on this device
-  const [loadError, setLoadError] = useState('');
   const [active, setActive] = useState(null);   // text being edited
   const [photoKey, setPhotoKey] = useState(null);
   const [panel, setPanel] = useState(null);     // 'review' | 'sent' | 'done'
@@ -251,26 +253,10 @@ export default function EditMode({ client, upload, exitHref = location.pathname,
   const [sent, setSent] = useState(null);
   const [welcome, setWelcome] = useState(() => !local.get(WELCOMED));
 
-  const load = useCallback(async () => {
-    setLoadError('');
-    try {
-      const { content } = await call(client, 'load');
-      // bring back unsent edits from last time, where that spot hasn't changed since
-      let d = content;
-      for (const c of local.get(DRAFT) || []) {
-        if (getIn(content, c.path) === c.before) d = setIn(d, c.path, c.after);
-      }
-      setBase(content); setDraft(d);
-    } catch (e) {
-      setLoadError(e.message);
-    }
-  }, [client]);
-  useEffect(() => { load(); }, [load]);
-
-  const changes = useMemo(() => (base && draft ? diffContent(base, draft) : []), [base, draft]);
+  const changes = useMemo(() => diffContent(base, draft), [base, draft]);
   const photoList = Object.entries(photos);
   const count = changes.length + photoList.length;
-  useEffect(() => { if (base) local.set(DRAFT, changes.length ? changes : null); }, [base, changes]);
+  useEffect(() => { local.set(DRAFT, changes.length ? changes : null); }, [changes]);
 
   useEffect(() => {
     document.documentElement.classList.add('ed-on');
@@ -285,7 +271,6 @@ export default function EditMode({ client, upload, exitHref = location.pathname,
 
   const changed = useMemo(() => new Set([...changes.map(c => pathKey(c.path)), ...photoList.map(([k]) => k)]), [changes, photoList]);
   const edit = useMemo(() => {
-    if (!draft) return null;
     const ed = {
       changed, photos, setActive,
       change: (path, value) => setDraft(d => setIn(d, path, value)),
@@ -332,19 +317,16 @@ export default function EditMode({ client, upload, exitHref = location.pathname,
 
   return (
     <>
-      {/* until the latest content has loaded, show the site as visitors see it */}
-      {draft ? (
-        <ContentProvider value={draft}>
-          <EditContext.Provider value={edit}>
-            <App />
-          </EditContext.Provider>
-        </ContentProvider>
-      ) : <App />}
+      <ContentProvider value={draft}>
+        <EditContext.Provider value={edit}>
+          <App />
+        </EditContext.Provider>
+      </ContentProvider>
 
-      {edit && !panel && !photoKey && <PhotoPins onPick={setPhotoKey} />}
+      {!panel && !photoKey && <PhotoPins onPick={setPhotoKey} />}
       <EditTip active={active} />
 
-      {welcome && edit && !panel && (
+      {welcome && !panel && (
         <div className="ed-welcome" role="note">
           <b>You’re editing your website</b>
           <p><span className="ed-ic">{Icon.pencil}</span><span>Click any words to change them.</span></p>
@@ -356,24 +338,12 @@ export default function EditMode({ client, upload, exitHref = location.pathname,
 
       <div className="ed-bar" role="toolbar" aria-label="Website editor">
         <span className="ed-bar-label"><i className="ed-dot" />Editing</span>
-        {loadError ? (
-          <>
-            <span className="ed-bar-count warn">Couldn’t load the editor</span>
-            <button type="button" className="ed-btn light" onClick={load}>Try again</button>
-          </>
-        ) : !edit ? (
-          <span className="ed-bar-count">Loading…</span>
-        ) : (
-          <>
-            <span className="ed-bar-count" aria-live="polite">{count ? `${count} change${count > 1 ? 's' : ''}` : 'No changes yet'}</span>
-            {count > 0 && <button type="button" className="ed-btn ghost" onClick={undoAll}>Undo all</button>}
-            <button type="button" className="ed-btn light" disabled={!count} onClick={() => setPanel('review')}>Review & send</button>
-          </>
-        )}
+        <span className="ed-bar-count" aria-live="polite">{count ? `${count} change${count > 1 ? 's' : ''}` : 'No changes yet'}</span>
+        {count > 0 && <button type="button" className="ed-btn ghost" onClick={undoAll}>Undo all</button>}
+        <button type="button" className="ed-btn light" disabled={!count} onClick={() => setPanel('review')}>Review & send</button>
         <button type="button" className="ed-btn ghost" onClick={() => setPanel('sent')}>Sent changes</button>
         <a className="ed-btn ghost" href={exitHref}>Exit</a>
       </div>
-      {loadError && <p className="ed-load-error" role="alert">{loadError}</p>}
 
       {photoKey && (
         <PhotoDialog key={photoKey} path={photoPath} image={getIn(draft, photoPath)} original={getIn(base, photoPath)} photo={photos[photoKey]}

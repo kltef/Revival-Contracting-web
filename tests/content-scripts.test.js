@@ -26,7 +26,7 @@ function repo(edit) {
   git('add', '-A'); git('commit', '-qm', 'main');
   git('checkout', '-qb', 'content/1');
   edit({ write, content: c => write(CONTENT_FILE, serialize(c(structuredClone(site)))) });
-  git('add', '-A'); git('commit', '-qm', 'edit');
+  git('add', '-A'); git('commit', '-qm', 'edit', '--allow-empty');
   git('checkout', '-q', 'main');
   return dir;
 }
@@ -72,11 +72,67 @@ test('content-live-check: waits for the live site to show the edit', async () =>
   const server = createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(served)); });
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const url = `http://127.0.0.1:${server.address().port}`;
-  const live = (minutes) => run(process.execPath, [path.join(root, 'scripts/content-live-check.mjs'), '--site', url, '--before', 'main', '--after', 'content/1', '--minutes', String(minutes)], { cwd: dir })
+  const live = (minutes) => run(process.execPath, [path.join(root, 'scripts/content-live-check.mjs'), '--site', url, '--before', 'main', '--after', 'content/1', '--minutes', String(minutes)], { cwd: dir, env: { ...process.env, NO_PROXY: '127.0.0.1,localhost', no_proxy: '127.0.0.1,localhost' } })
     .then(() => 0, e => e.code);
   try {
     assert.equal(await live(0), 1, 'old content still live');
     served = { ...site, home: { ...site.home, cta: { ...site.home.cta, title: 'Ready when you are?' } } };
     assert.equal(await live(0), 0, 'new content live');
+  } finally { server.close(); }
+});
+
+test('end to end: an editor’s request goes through the webhook into the repo and passes the check', async () => {
+  const { createApi } = await import('../amplify/functions/content-api/core.mjs');
+  const files = new Map([['content-uploads/new.jpg', { bytes: Buffer.from('jpeg-bytes'), contentType: 'image/jpeg' }]]);
+  const store = {
+    async getJson(k) { return files.has(k) ? JSON.parse(files.get(k).bytes.toString()) : null; },
+    async putJson(k, v) { files.set(k, { bytes: Buffer.from(JSON.stringify(v)), contentType: 'application/json' }); },
+    async list(p) { return [...files.keys()].filter(k => k.startsWith(p)); },
+    async getBytes(k) { return files.get(k) || null; },
+  };
+  const api = createApi({ store, content: site, fetch: async () => new Response('{}'), random: () => 'abc123' });
+  const key = 'w'.repeat(40);
+  await api.run('saveSettings', { websiteKey: key }, { userId: 'anthony' });
+  const { id } = await api.run('submit', {
+    changes: [{ path: ['home', 'hero', 'lead'], value: 'Family-owned since 1986.\nWe handle every step.' }],
+    uploads: [{ path: ['about', 'photo', 'src'], key: 'content-uploads/new.jpg' }],
+  }, { editorName: 'Jeanette' });
+
+  // the webhook, served the way the function URL serves it
+  const server = createServer(async (req, res) => {
+    let body = '';
+    for await (const c of req) body += c;
+    try { const out = await api.hook(req.headers, body); res.writeHead(200); res.end(JSON.stringify(out)); }
+    catch (e) { res.writeHead(e.status || 500); res.end(JSON.stringify({ error: e.message })); }
+  });
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const hookUrl = `http://127.0.0.1:${server.address().port}/`;
+  const env = { ...process.env, WEBSITE_KEY: key, NO_PROXY: '127.0.0.1,localhost', no_proxy: '127.0.0.1,localhost' };
+  try {
+    const dir = repo(() => {});
+    const git = (...a) => execFileSync('git', a, { cwd: dir, encoding: 'utf8' });
+    git('checkout', '-qb', `content/${id}`);
+    // asynchronously: the webhook server runs in this process
+    const applied = JSON.parse((await run(process.execPath, [path.join(root, 'scripts/content-apply.mjs'), hookUrl, id], { cwd: dir, env })).stdout);
+    assert.equal(applied.applied, true);
+    assert.deepEqual(applied.files, [`public/photos/uploads/${id}-1.jpg`, CONTENT_FILE]);
+    assert.equal(fs.readFileSync(path.join(dir, `public/photos/uploads/${id}-1.jpg`), 'utf8'), 'jpeg-bytes');
+    git('add', '-A'); git('commit', '-qm', 'apply');
+    const r = JSON.parse(execFileSync(process.execPath, [path.join(root, 'scripts/content-check.mjs'), 'main', `content/${id}`], { cwd: dir, encoding: 'utf8' }));
+    assert.equal(r.ok, true, JSON.stringify(r.holds));
+    assert.deepEqual(r.newPhotos, [`public/photos/uploads/${id}-1.jpg`]);
+
+    // someone changed the same words on main in the meantime: nothing is written
+    git('checkout', '-q', 'main');
+    const changed = structuredClone(site); changed.home.hero.lead = 'Changed by Anthony';
+    fs.writeFileSync(path.join(dir, CONTENT_FILE), serialize(changed));
+    const conflict = await run(process.execPath, [path.join(root, 'scripts/content-apply.mjs'), hookUrl, id], { cwd: dir, env }).then(() => null, e => e);
+    assert.equal(conflict.code, 1);
+    assert.match(conflict.stdout, /"found": "Changed by Anthony"/);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(dir, CONTENT_FILE), 'utf8')).home.hero.lead, 'Changed by Anthony');
+
+    // wrong key
+    const denied = await run(process.execPath, [path.join(root, 'scripts/content-apply.mjs'), hookUrl, id], { cwd: dir, env: { ...env, WEBSITE_KEY: 'nope' } }).then(() => null, e => e);
+    assert.match(denied.stderr, /401/);
   } finally { server.close(); }
 });

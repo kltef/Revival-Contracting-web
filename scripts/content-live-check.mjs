@@ -24,10 +24,11 @@ const deadline = Date.now() + Number(args.minutes || 30) * 60_000;
 let last = '';
 for (;;) {
   try {
-    const res = await fetch(`${site}/content.json?ts=${Date.now()}`, { cache: 'no-store' });
-    if (res.ok && isLive(await res.json())) { console.log(`live: ${edits.map(c => pathKey(c.path)).join(', ') || '(no text changes)'}`); process.exit(0); }
-    last = res.ok ? 'the site still shows the old version' : `the site returned ${res.status}`;
-  } catch (e) { last = e.message; }
+    // curl, not fetch: it goes through the routine environment's proxy
+    const body = execFileSync('curl', ['-sS', '--fail', '--max-time', '20', '-H', 'Cache-Control: no-cache', `${site}/content.json?ts=${Date.now()}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    if (isLive(JSON.parse(body))) { console.log(`live: ${edits.map(c => pathKey(c.path)).join(', ') || '(no text changes)'}`); process.exit(0); }
+    last = 'the site still shows the old version';
+  } catch (e) { last = String(e.stderr || e.message).trim().split('\n').pop(); }
   if (Date.now() > deadline) break;
   console.log(`not live yet: ${last}`);
   await new Promise(r => setTimeout(r, 30_000));
