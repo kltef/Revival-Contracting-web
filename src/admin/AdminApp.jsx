@@ -4,6 +4,7 @@ import { generateClient } from 'aws-amplify/data';
 import { hasBackend } from '../amplify.js';
 import GalleryManager from './GalleryManager.jsx';
 import Submissions from './Submissions.jsx';
+import WebsiteTab from './WebsiteTab.jsx';
 
 const Brand = () => (
   <div className="a-brand">
@@ -12,11 +13,11 @@ const Brand = () => (
   </div>
 );
 
-const TABS = [['gallery', 'Gallery'], ['estimates', 'Estimate requests'], ['reviews', 'Reviews']];
+const TABS = [['website', 'Website'], ['gallery', 'Gallery'], ['estimates', 'Estimate requests'], ['reviews', 'Reviews']];
 
 function Dashboard({ user, signOut }) {
   const client = useMemo(() => generateClient({ authMode: 'userPool' }), []);
-  const [tab, setTab] = useState('gallery');
+  const [tab, setTab] = useState('website');
   return (
     <div className="a-shell">
       <header className="a-top">
@@ -33,6 +34,7 @@ function Dashboard({ user, signOut }) {
         ))}
       </nav>
       <main className="a-main">
+        {tab === 'website' && <WebsiteTab client={client} />}
         {tab === 'gallery' && <GalleryManager client={client} />}
         {tab === 'estimates' && <Submissions client={client} kind="estimates" />}
         {tab === 'reviews' && <Submissions client={client} kind="reviews" />}

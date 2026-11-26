@@ -287,7 +287,7 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;backgroun
 .story{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:8px}
 .story .col{display:grid;gap:12px;align-content:start}
 .story h3{font-size:1.1rem;display:flex;align-items:center;gap:10px}
-.story h3 span{font-family:var(--f-body);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;background:var(--aqua-soft);color:var(--navy);padding:4px 10px;border-radius:999px}
+.story h3>span:first-child{font-family:var(--f-body);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;background:var(--aqua-soft);color:var(--navy);padding:4px 10px;border-radius:999px}
 .story .ph{aspect-ratio:4/3}
 @media (max-width:760px){.story{grid-template-columns:1fr}}
 dialog.lb{border:0;padding:0;background:transparent;max-width:min(1100px,94vw);max-height:92vh}

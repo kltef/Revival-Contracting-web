@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { content as c } from '../content/content.jsx';
+import { Text, Img, useContent } from '../content/content.jsx';
 
-const BA = c.home.beforeAfter;
-const SETS = {
-  kitchen: [BA.kitchen.before.src, BA.kitchen.after.src, BA.kitchen.label],
-  bath: [BA.bath.before.src, BA.bath.after.src, BA.bath.label],
-};
-const TABS = [['kitchen', BA.tabKitchen], ['bath', BA.tabBath]];
+const BA = 'home.beforeAfter';
+const TABS = [['kitchen', 'tabKitchen'], ['bath', 'tabBath']];
 
 export default function BeforeAfter() {
+  const sets = useContent().home.beforeAfter;
   const [tab, setTab] = useState('kitchen');       // selected tab
   const [shown, setShown] = useState('kitchen');   // photos on screen (changes after the fade-out)
   const [swapping, setSwapping] = useState(false);
@@ -67,22 +64,22 @@ export default function BeforeAfter() {
     slider.current.setTarget(50, .09);
   };
 
-  const [before, after, label] = SETS[shown];
+  const label = sets[shown].label;
   return (
     <>
       <div>
-        <p className="eyebrow">{BA.eyebrow}</p>
-        <h2 style={{ marginTop: 12 }}>{BA.title}</h2>
-        <p className="lead" style={{ marginTop: 14 }}>{BA.lead}</p>
+        <Text path={`${BA}.eyebrow`} as="p" className="eyebrow" />
+        <Text path={`${BA}.title`} as="h2" style={{ marginTop: 12 }} />
+        <Text path={`${BA}.lead`} as="p" className="lead" style={{ marginTop: 14 }} multiline />
         <div className="tabs" role="tablist" aria-label="Choose a project">
-          {TABS.map(([key, text]) => (
-            <button key={key} className="tab" role="tab" aria-selected={tab === key} data-ba={key} onClick={() => choose(key)}>{text}</button>
+          {TABS.map(([key, field]) => (
+            <button key={key} className="tab" role="tab" aria-selected={tab === key} data-ba={key} onClick={() => choose(key)}><Text path={`${BA}.${field}`} /></button>
           ))}
         </div>
       </div>
       <div className={'ba' + (swapping ? ' swapping' : '')} id="ba" ref={baRef} style={{ '--pos': '50%' }}>
-        <img className="before" id="baBefore" ref={beforeRef} src={before} alt={label + ' before remodel'} />
-        <img className="after" id="baAfter" ref={afterRef} src={after} alt={label + ' after remodel'} />
+        <Img path={`${BA}.${shown}.before`} className="before" id="baBefore" ref={beforeRef} alt={label + ' before remodel'} />
+        <Img path={`${BA}.${shown}.after`} className="after" id="baAfter" ref={afterRef} alt={label + ' after remodel'} />
         <span className="tag l">Before</span><span className="tag r">After</span>
         <div className="handle"><div className="knob"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6" /></svg></div></div>
         <input type="range" id="baRange" ref={rangeRef} min="0" max="100" defaultValue="50" aria-label="Compare before and after"

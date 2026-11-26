@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Page, PageHead } from '../Layout.jsx';
 import { hasBackend, listAll, publicBackend } from '../../amplify.js';
 import { DEFAULT_GALLERY, CATEGORIES, categoryTag } from '../../lib/gallery.mjs';
-import { content as c, Text } from '../../content/content.jsx';
+import { Text, Img, useContent } from '../../content/content.jsx';
 
 // Photos and their order are managed from /admin. Until any are saved there, the built-in set is shown.
 function useGallery() {
@@ -33,6 +33,7 @@ function useGallery() {
 }
 
 export default function Projects({ active }) {
+  const story = useContent().projects.story;
   const items = useGallery();
   const [filter, setFilter] = useState('all');
   const [open, setOpen] = useState(null);
@@ -73,10 +74,10 @@ export default function Projects({ active }) {
         <div className="wrap">
           <div className="sec-head"><Text path="projects.storyEyebrow" as="p" className="eyebrow" /><Text path="projects.storyTitle" as="h2" /><Text path="projects.storyLead" as="p" className="lead" /></div>
           <div className="story">
-            {c.projects.story.map((col, i) => (
-              <div className="col" key={col.title}>
-                <h3><span>{i + 1}</span>{col.title}</h3>
-                {col.photos.map(p => <div className="ph" key={p.src}><img src={p.src} alt={p.alt} /></div>)}
+            {story.map((col, i) => (
+              <div className="col" key={i}>
+                <h3><span>{i + 1}</span><Text path={['projects', 'story', i, 'title']} /></h3>
+                {col.photos.map((_, j) => <div className="ph" key={j}><Img path={['projects', 'story', i, 'photos', j]} /></div>)}
               </div>
             ))}
           </div>

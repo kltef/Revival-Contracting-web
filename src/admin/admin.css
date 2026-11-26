@@ -86,3 +86,9 @@ dl{margin:0;display:grid;gap:6px}
 .a-field dd{margin:0;overflow-wrap:anywhere}
 .a-pre{white-space:pre-wrap}
 @media (max-width:520px){.a-field{grid-template-columns:1fr;gap:0}}
+
+/* Website tab */
+.a-editor-card{grid-template-columns:1fr auto;align-items:center;gap:16px 24px}
+.a-editor-card p{margin:6px 0 0;max-width:60ch}
+.a-btn-big{font-size:1rem;padding:13px 24px;text-decoration:none;white-space:nowrap}
+@media (max-width:640px){.a-editor-card{grid-template-columns:1fr}.a-btn-big{justify-self:start}}

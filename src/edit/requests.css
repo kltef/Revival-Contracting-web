@@ -1,0 +1,33 @@
+/* "Sent changes" list and messages, shared by the inline editor and the admin page */
+.rq,.rq-thread{display:grid;gap:12px;font-size:16px;line-height:1.5;color:#0F2557}
+.rq-muted{margin:0;color:#4A5F7D}
+.rq-error{margin:0;padding:10px 14px;border-radius:12px;background:#FBE9E6;color:#B5362A;font-weight:600}
+.rq-link{justify-self:start;background:none;border:0;padding:4px 0;font-weight:600;font-size:15px;font-family:inherit;color:#2A8FA8;text-decoration:underline;cursor:pointer}
+.rq-list{list-style:none;margin:0;padding:0;border:1px solid #DCE8EC;border-radius:14px;overflow:hidden}
+.rq-list li+li{border-top:1px solid #DCE8EC}
+.rq-list button{width:100%;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 14px;padding:14px 16px;border:0;background:#fff;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.rq-list button:hover{background:#F4FBFC}
+.rq-list button>span:first-child{display:grid}
+.rq-list small{color:#4A5F7D}
+.rq-chip{padding:5px 12px;border-radius:999px;font-size:14px;font-weight:700;white-space:nowrap;background:#E3F4F7;color:#0F2557}
+.rq-chip.human{background:#FFF0C7}
+.rq-chip.live{background:#D7F0E0;color:#17603A}
+.rq-chip.closed{background:#EEE;color:#555}
+.rq-thread h3{margin:0;font-size:1.15rem;font-family:inherit;letter-spacing:0}
+.rq-thread h4{margin:4px 0 0;font-size:1rem;font-family:inherit;letter-spacing:0}
+.rq-steps{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.rq-steps li{flex:1 1 100px;padding:8px 10px;border-radius:10px;border:2px solid #DCE8EC;background:#F7FAFB;font-weight:600;font-size:14px;color:#4A5F7D;text-align:center}
+.rq-steps li.done{background:#D7F0E0;border-color:#BFE3CD;color:#17603A}
+.rq-steps li.now{background:#E3F4F7;border-color:#2A8FA8;color:#0F2557}
+.rq-status{margin:0;font-weight:600}
+.rq-messages{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.rq-msg{max-width:88%;padding:10px 14px;border-radius:14px;background:#F2F5F7}
+.rq-msg.editor{justify-self:end;background:#E3F4F7}
+.rq-msg small{color:#4A5F7D}
+.rq-msg p{margin:4px 0 0;white-space:pre-wrap}
+.rq-compose{display:grid;gap:8px}
+.rq-compose label{font-weight:700}
+.rq-compose textarea{width:100%;box-sizing:border-box;font:inherit;padding:12px 14px;border:2px solid #DCE8EC;border-radius:12px;resize:vertical;color:#0F2557;background:#fff}
+.rq-compose textarea:focus{outline:none;border-color:#2A8FA8;box-shadow:0 0 0 4px #E3F4F7}
+.rq-btn{justify-self:start;min-height:44px;padding:0 20px;border:0;border-radius:999px;background:#2A8FA8;color:#fff;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer}
+.rq-btn:disabled{opacity:.45;cursor:default}

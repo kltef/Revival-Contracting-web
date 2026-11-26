@@ -1,9 +1,8 @@
 import { Page, PageHead } from '../Layout.jsx';
-import { content as c, Text, Img, Rich } from '../../content/content.jsx';
-
-const A = c.about;
+import { Text, Img, useContent } from '../../content/content.jsx';
 
 export default function About({ active }) {
+  const a = useContent().about;
   return (
     <Page name="about" active={active}>
       <PageHead crumb="About">
@@ -14,12 +13,12 @@ export default function About({ active }) {
           <div className="ph"><Img path="about.photo" /></div>
           <div>
             <div className="prose">
-              {A.paragraphs.map((p, i) => <p key={i}><Rich text={p} /></p>)}
+              {a.paragraphs.map((_, i) => <Text key={i} path={['about', 'paragraphs', i]} as="p" multiline />)}
             </div>
             <div className="stats">
-              {A.stats.map(s => <div className="stat" key={s.value}><b>{s.value}</b><span>{s.label}</span></div>)}
+              {a.stats.map((_, i) => <div className="stat" key={i}><Text path={['about', 'stats', i, 'value']} as="b" /><Text path={['about', 'stats', i, 'label']} /></div>)}
             </div>
-            <div className="principle"><small>{A.principleSource}</small><p>{A.principle}</p></div>
+            <div className="principle"><Text path="about.principleSource" as="small" /><Text path="about.principle" as="p" multiline /></div>
           </div>
         </div>
       </div>
@@ -27,7 +26,7 @@ export default function About({ active }) {
         <div className="wrap">
           <div className="sec-head"><Text path="about.valuesEyebrow" as="p" className="eyebrow" /><Text path="about.valuesTitle" as="h2" /></div>
           <div className="values">
-            {A.values.map(v => <div className="value" key={v.title}><h3>{v.title}</h3><p>{v.text}</p></div>)}
+            {a.values.map((_, i) => <div className="value" key={i}><Text path={['about', 'values', i, 'title']} as="h3" /><Text path={['about', 'values', i, 'text']} as="p" multiline /></div>)}
           </div>
         </div>
       </div>

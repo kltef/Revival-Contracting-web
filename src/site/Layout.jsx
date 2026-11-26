@@ -1,7 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { content as c, Rich, telHref } from '../content/content.jsx';
-
-const B = c.business;
+import { Text, useContent, telHref } from '../content/content.jsx';
 
 export function Page({ name, active, children }) {
   return <section className={'page' + (active ? ' active' : '')} id={'p-' + name} data-page={name}>{children}</section>;
@@ -60,22 +58,23 @@ export function Header({ page, menuOpen, setMenuOpen }) {
 }
 
 export function Footer() {
+  const B = useContent().business;
   return (
     <footer>
       <div className="wrap">
         <div className="fgrid">
           <div>
             <Brand />
-            <p style={{ marginTop: 16, maxWidth: '34ch' }}>{B.footerTagline}</p>
+            <Text path="business.footerTagline" as="p" style={{ marginTop: 16, maxWidth: '34ch' }} multiline />
           </div>
           <div><h4>Explore</h4><a href="#services">Services</a><a href="#projects">Projects</a><a href="#about">About</a><a href="#reviews">Reviews</a></div>
           <div><h4>Services</h4><a href="#services-kitchen">Kitchens</a><a href="#services-bath">Bathrooms</a><a href="#services-outdoor">Lanais &amp; summer kitchens</a><a href="#services-addition">Additions</a></div>
-          <div><h4>Visit</h4><p><Rich text={B.addressLines} /></p>
-            <a href={'mailto:' + B.email} style={{ overflowWrap: 'anywhere' }}>{B.email}</a>
-            <a href={telHref(B.phone)} style={{ marginTop: 8 }}>{B.phone}</a>
+          <div><h4>Visit</h4><Text path="business.addressLines" as="p" multiline />
+            <a href={'mailto:' + B.email} style={{ overflowWrap: 'anywhere' }}><Text path="business.email" /></a>
+            <a href={telHref(B.phone)} style={{ marginTop: 8 }}><Text path="business.phone" /></a>
             <a href="#contact" style={{ marginTop: 8, color: '#8FD3E3', fontWeight: 600 }}>Get a free estimate →</a></div>
         </div>
-        <div className="legal"><span>{B.legal}</span><span>{B.license}</span></div>
+        <div className="legal"><Text path="business.legal" /><Text path="business.license" /></div>
       </div>
     </footer>
   );

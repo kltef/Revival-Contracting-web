@@ -11,13 +11,16 @@
   },
   "dependencies": {
     "@aws-amplify/ui-react": "^6.15.7",
+    "@aws-sdk/client-s3": "^3.1178.0",
     "aws-amplify": "^6.22.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^1.14.0",
     "@aws-amplify/backend": "^1.25.1",
     "@aws-amplify/backend-cli": "^1.10.0",
+    "@types/node": "^22.20.7",
     "@vitejs/plugin-react": "^6.1.2",
     "aws-cdk-lib": "^2.274.0",
     "constructs": "^10.8.1",

@@ -1,4 +1,5 @@
 import { a, defineData, type ClientSchema } from '@aws-amplify/backend';
+import { contentApi } from '../functions/content-api/resource';
 
 // Visitors use guest (identity pool) access: they can read the gallery and send
 // estimate requests and reviews, but never read submissions back.
@@ -57,6 +58,15 @@ const schema = a.schema({
       review: a.string().required(),
     })
     .authorization((allow) => [allow.guest().to(['read']), allow.authenticated()]),
+
+  // The admin page's website editor: load the content, send edits as GitHub pull requests,
+  // and read or reply to each request's messages. action is load | submit | list | thread | message.
+  contentApi: a
+    .mutation()
+    .arguments({ action: a.string().required(), payload: a.json() })
+    .returns(a.json())
+    .authorization((allow) => [allow.authenticated()])
+    .handler(a.handler.function(contentApi)),
 });
 
 export type Schema = ClientSchema<typeof schema>;

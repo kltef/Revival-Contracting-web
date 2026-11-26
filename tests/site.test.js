@@ -123,3 +123,16 @@ test('admin: without a backend explains how to connect one', async () => {
   assert.equal(await page.textContent('h1'), 'Backend not connected');
   await page.close();
 });
+
+test('editor: /?edit loads the editor (here, its not-connected message) and visitors never load it', async () => {
+  const page = await open('', '', '?edit');
+  await page.waitForSelector('.ed-signin h1');
+  assert.equal(await page.textContent('.ed-signin h1'), 'The editor isn’t connected yet');
+  await page.close();
+
+  const visitor = await open('index.html');
+  const scripts = await visitor.evaluate(() => performance.getEntriesByType('resource').map(r => r.name).filter(n => /\.js$/.test(n)));
+  assert.ok(scripts.length > 0);
+  assert.ok(!scripts.some(n => /EditApp/.test(n)), 'editor code was downloaded by a visitor: ' + scripts.join(', '));
+  await visitor.close();
+});

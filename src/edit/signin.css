@@ -1,0 +1,13 @@
+/* Sign-in screen before the editor opens, in the site's colors */
+[data-amplify-theme]{
+  --amplify-colors-brand-primary-10:#D4EFF3;
+  --amplify-colors-brand-primary-80:#0F2557;
+  --amplify-colors-brand-primary-90:#1B3672;
+  --amplify-colors-brand-primary-100:#0A1530;
+  --amplify-fonts-default-variable:var(--f-body, "Figtree", system-ui, sans-serif);
+  --amplify-fonts-default-static:var(--f-body, "Figtree", system-ui, sans-serif);
+}
+[data-amplify-authenticator]{min-height:100vh;padding:16px;background:#F2F8F9}
+.ed-signin{min-height:100vh;display:grid;place-content:center;justify-items:center;gap:12px;padding:16px;text-align:center;background:#F2F8F9;color:#0F2557}
+.ed-signin-brand{display:flex;align-items:center;justify-content:center;gap:12px;padding:28px 0 18px;font-weight:600;font-size:1.1rem;color:#0F2557}
+.ed-signin-brand b{font-family:var(--f-script, cursive);font-size:1.8rem}
