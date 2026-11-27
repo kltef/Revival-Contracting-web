@@ -214,3 +214,12 @@ test('s3 store: a missing file reads as missing even though S3 says AccessDenied
   const locked = s3Store({ s3: fakeS3(new Map([['secret/x.json', jpeg]]), { readable: [] }).s3, bucket: 'b', ...commands });
   await assert.rejects(locked.getJson('editor-settings/settings.json'), /Access Denied/);
 });
+
+test('content-api reads the bucket name under the variable Amplify actually sets', () => {
+  // Amplify names it after the storage, in capitals: revivalGallery -> REVIVAL_GALLERY_BUCKET_NAME
+  const storage = fs.readFileSync(new URL('../amplify/storage/resource.ts', import.meta.url), 'utf8');
+  const name = storage.match(/name:\s*'([^']+)'/)[1];
+  const expected = name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase() + '_BUCKET_NAME';
+  const handler = fs.readFileSync(new URL('../amplify/functions/content-api/handler.ts', import.meta.url), 'utf8');
+  assert.match(handler, new RegExp(`process\\.env\\.${expected}\\b`));
+});

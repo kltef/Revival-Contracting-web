@@ -7,9 +7,11 @@ import { s3Store } from './s3-store.mjs';
 //  - from the admin page and editor (AppSync, signed in): the contentApi mutation
 //  - from Claude's routine (the function URL, see backend.ts): the webhook, with the website key
 const s3 = new S3Client();
-const Bucket = process.env.revivalGallery_BUCKET_NAME;
+// Amplify passes the bucket name for the storage named "revivalGallery" as REVIVAL_GALLERY_BUCKET_NAME
+// (resolved at startup); read it on each call rather than once at load.
+const bucket = () => process.env.REVIVAL_GALLERY_BUCKET_NAME;
 
-const store: Store = s3Store({ s3, bucket: Bucket, GetObjectCommand, PutObjectCommand, ListObjectsV2Command });
+const store: Store = s3Store({ s3, bucket, GetObjectCommand, PutObjectCommand, ListObjectsV2Command });
 
 const api = createApi({ store, content });
 
