@@ -136,3 +136,37 @@ test('editor: /?edit loads the editor (here, its not-connected message) and visi
   assert.ok(!scripts.some(n => /EditApp/.test(n)), 'editor code was downloaded by a visitor: ' + scripts.join(', '));
   await visitor.close();
 });
+
+test('header: admin links only for people who run the site', async () => {
+  const page = await open();
+  const staffLinks = () => page.$$eval('header nav a.staff', as => as.map(a => [a.textContent.trim(), a.getAttribute('href')]));
+  const reload = async () => { await page.reload(); await page.waitForSelector('.page.active'); };
+
+  // a member of the public: nothing about signing in
+  assert.deepEqual(await staffLinks(), []);
+  assert.equal(await page.$('a[href*="admin"]'), null);
+
+  // signed in (what Amplify stores after sign-in)
+  await page.evaluate(() => {
+    localStorage.setItem('CognitoIdentityServiceProvider.client123.LastAuthUser', 'anthony');
+    localStorage.setItem('CognitoIdentityServiceProvider.client123.anthony.refreshToken', 'token');
+  });
+  await reload();
+  assert.deepEqual(await staffLinks(), [['Edit website', '?edit'], ['Admin', 'admin/']]);
+
+  // on a phone the links are in the menu
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.click('#menuBtn');
+  await page.waitForSelector('.links.open a.staff');
+  assert.ok(await page.isVisible('.links.open a.staff >> text=Edit website'));
+  await page.setViewportSize({ width: 1200, height: 900 });
+
+  // signed out (Amplify removes its keys): "Sign in" only, because this browser has signed in before
+  await page.evaluate(() => {
+    localStorage.removeItem('CognitoIdentityServiceProvider.client123.LastAuthUser');
+    localStorage.removeItem('CognitoIdentityServiceProvider.client123.anthony.refreshToken');
+  });
+  await reload();
+  assert.deepEqual(await staffLinks(), [['Sign in', 'admin/']]);
+  await page.close();
+});

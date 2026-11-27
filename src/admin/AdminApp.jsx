@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Authenticator } from '@aws-amplify/ui-react';
 import { generateClient } from 'aws-amplify/data';
 import { hasBackend } from '../amplify.js';
 import GalleryManager from './GalleryManager.jsx';
 import Submissions from './Submissions.jsx';
 import WebsiteTab from './WebsiteTab.jsx';
+import { markStaff } from '../lib/staff.mjs';
 
 const Brand = () => (
   <div className="a-brand">
@@ -17,6 +18,8 @@ const TABS = [['website', 'Website'], ['gallery', 'Gallery'], ['estimates', 'Est
 
 function Dashboard({ user, signOut }) {
   const client = useMemo(() => generateClient({ authMode: 'userPool' }), []);
+  // the public site shows "Sign in" on this browser from now on
+  useEffect(() => markStaff(), []);
   const [tab, setTab] = useState('website');
   return (
     <div className="a-shell">
@@ -24,6 +27,7 @@ function Dashboard({ user, signOut }) {
         <Brand />
         <div className="a-user">
           <a href="../">View site</a>
+          <a href="../?edit">Edit website</a>
           <span className="a-muted">{user?.signInDetails?.loginId}</span>
           <button type="button" className="a-btn ghost" onClick={signOut}>Sign out</button>
         </div>

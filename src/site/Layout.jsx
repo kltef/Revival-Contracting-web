@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
-import { Text, useContent, telHref } from '../content/content.jsx';
+import { useEffect, useRef, useState } from 'react';
+import { Text, useContent, useEditing, telHref } from '../content/content.jsx';
+import { staffState } from '../lib/staff.mjs';
 
 export function Page({ name, active, children }) {
   return <section className={'page' + (active ? ' active' : '')} id={'p-' + name} data-page={name}>{children}</section>;
@@ -25,8 +26,25 @@ export function Brand({ className = 'brand', label }) {
   );
 }
 
+// 'signedIn' | 'returning' | 'public', from what this browser has stored (see src/lib/staff.mjs)
+function useStaff() {
+  const [state, setState] = useState(() => staffState(globalThis.localStorage));
+  useEffect(() => {
+    const check = () => setState(staffState(globalThis.localStorage));
+    addEventListener('storage', check); // signed in or out in another tab
+    addEventListener('focus', check);
+    return () => { removeEventListener('storage', check); removeEventListener('focus', check); };
+  }, []);
+  return state;
+}
+
+const GearIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>;
+const PencilIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="M13.5 6.5l4 4" /></svg>;
+
 export function Header({ page, menuOpen, setMenuOpen }) {
   const navRef = useRef(null), btnRef = useRef(null);
+  const staff = useStaff();
+  const editing = Boolean(useEditing());
 
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') setMenuOpen(false); };
@@ -46,6 +64,11 @@ export function Header({ page, menuOpen, setMenuOpen }) {
           {NAV.map(([key, label]) => (
             <a key={key} href={'#' + key} aria-current={page === key ? 'page' : undefined}>{label}</a>
           ))}
+          {/* Only for the people who run the site: nothing shows for the public */}
+          {/* (between tablet and wide desktop these shrink to icons; the label stays for screen readers) */}
+          {staff === 'signedIn' && !editing && <a className="staff staff-first" href="?edit" title="Edit website"><PencilIcon /><span>Edit website</span></a>}
+          {staff === 'signedIn' && <a className={'staff' + (editing ? ' staff-first' : '')} href="admin/" title="Admin"><GearIcon /><span>Admin</span></a>}
+          {staff === 'returning' && <a className="staff staff-first" href="admin/">Sign in</a>}
         </nav>
         <a className="btn btn-primary desk" href="#contact">Free estimate</a>
         <button className="menu-btn" id="menuBtn" ref={btnRef} aria-label={menuOpen ? 'Close menu' : 'Open menu'}

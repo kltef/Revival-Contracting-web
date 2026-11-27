@@ -3,6 +3,7 @@ import App from '../site/App.jsx';
 import { ContentProvider, EditContext, Rich, content as published } from '../content/content.jsx';
 import { diffContent, isProtectedPath, pathKey, MAX_TEXT } from '../lib/content-edit.mjs';
 import Requests from './Requests.jsx';
+import { markStaff } from '../lib/staff.mjs';
 import { call, shrink, where, fieldName, TIMING } from './shared.js';
 import './edit.css';
 
@@ -260,6 +261,7 @@ export default function EditMode({ client, upload, exitHref = location.pathname,
 
   useEffect(() => {
     document.documentElement.classList.add('ed-on');
+    markStaff();
     return () => document.documentElement.classList.remove('ed-on');
   }, []);
   useEffect(() => {

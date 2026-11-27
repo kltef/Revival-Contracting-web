@@ -374,3 +374,26 @@ footer .brand-name small{color:#9FB3C8}
   .mbar .btn{justify-content:center;padding:13px}
   footer{padding-bottom:110px}
 }
+/* links for the people who run the site (only shown to them; see Header) */
+.links a.staff{display:inline-flex;align-items:center;gap:6px;color:var(--aqua-deep)}
+.links a.staff svg{width:16px;height:16px;flex:none}
+.links a.staff-first{position:relative;margin-left:13px}
+.links a.staff-first::before{content:"";position:absolute;left:-9px;top:22%;bottom:22%;width:1px;background:var(--line)}
+/* desktop: the header is already full, so staff links are icons (labels stay for screen readers and
+   tooltips), and the menu tightens a little only while they show; visitors' header is unchanged */
+@media (min-width:921px){
+  .links a.staff{padding:9px 8px}
+  .links a.staff span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .links a.staff svg{width:19px;height:19px}
+  .links a.staff-first{margin-left:10px}
+  .links a.staff-first::before{left:-6px}
+  .nav:has(a.staff){gap:10px}
+  .nav:has(a.staff) .links{gap:2px}
+  .nav:has(a.staff) .links a:not(.staff){padding:9px 11px}
+}
+@media (min-width:921px) and (max-width:1030px){.nav:has(a.staff) .links a:not(.staff){padding:9px 8px}}
+@media (max-width:920px){
+  .links a.staff-first{margin:8px 0 0}
+  .links a.staff-first::before{left:16px;right:16px;top:-5px;bottom:auto;width:auto;height:1px}
+  .links.open a:nth-child(7){transition-delay:.3s}.links.open a:nth-child(8){transition-delay:.34s}
+}
